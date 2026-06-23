@@ -1,4 +1,4 @@
-# 🚀 Node-Express-Starter
+# 🚀 My-Eyes-And-Ears-Backend
 
 A robust, production-ready boilerplate for building scalable RESTful APIs with Node.js, Express, and MongoDB.
 
