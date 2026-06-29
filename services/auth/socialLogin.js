@@ -35,13 +35,12 @@ const socialLoginService = async (email, idToken, source) => {
       `social-${normalizedSource}-${Date.now()}-${crypto
         .randomInt(1000, 10000)
         .toString()}`.toLowerCase();
-    const generatedPassword = crypto.randomBytes(24).toString("hex");
 
     user = await User.create({
       email: normalizedEmail,
-      password: generatedPassword,
+      password: null,
       name: generatedName,
-      phoneNumber: generatedPhoneNumber,
+      phoneNumber: "",
       isEmailVerified: true,
       emailVerificationOtpHash: null,
       emailVerificationOtpExpiresAt: null,

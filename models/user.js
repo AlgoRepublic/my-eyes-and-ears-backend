@@ -13,7 +13,8 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: false,
+      default: null,
     },
     name: {
       type: String,
@@ -49,6 +50,16 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    forgotPasswordOtpHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    forgotPasswordOtpExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
     socialAccounts: [
       {
         source: {
@@ -76,7 +87,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password") || !this.password) return;
   this.password = await bcrypt.hash(this.password, 12);
 });
 

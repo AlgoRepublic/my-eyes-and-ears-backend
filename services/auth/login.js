@@ -4,7 +4,6 @@ const { CustomError } = require("../../utils/error");
 const { joiValidate, joiFormatErrors } = require("../../utils/joi");
 const { loginSchema } = require("../../utils/validation");
 const User = require("../../models/user");
-const bcrypt = require("bcrypt");
 
 const loginService = async (email, password) => {
   const { error } = await joiValidate(loginSchema, {
@@ -34,14 +33,11 @@ const loginService = async (email, password) => {
   }
 
   if (!user.password) {
-    console.log("LOGIN DEBUG: User has no password set");
-    if (password && typeof password === "string") {
-      const saltRounds = 10;
-      user.password = await bcrypt.hash(password.trim(), saltRounds);
-      await user.save();
-    }
-
-    throw new CustomError("Password not set for this user");
+    throw new CustomError(
+      "Password is not set for this account. Please login with social provider or setup password using forgot password.",
+      [],
+      400,
+    );
   }
 
   console.log("LOGIN DEBUG: Stored Hash:", user.password);
