@@ -25,6 +25,14 @@ const loginService = async (email, password) => {
     throw new CustomError("Invalid email or password");
   }
 
+  if (!user.isEmailVerified) {
+    throw new CustomError(
+      "Please verify your email with OTP before logging in",
+      [],
+      403,
+    );
+  }
+
   if (!user.password) {
     console.log("LOGIN DEBUG: User has no password set");
     if (password && typeof password === "string") {
@@ -46,23 +54,35 @@ const loginService = async (email, password) => {
   }
 
   const accessToken = jwt.sign(
-    { userId: user.id, type: "access" },
+    { id: user.id, type: "access" },
     process.env.JWT_SECRET,
     {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1m",
-    }
+    },
   );
 
   const refreshToken = crypto.randomBytes(64).toString("hex");
+
+  const userData = {
+    id: user._id,
+    email: user.email,
+    name: user.name,
+    phoneNumber: user.phoneNumber,
+    familyName: user.familyName,
+    isEmailVerified: user.isEmailVerified,
+    isProfileCompleted: user.isProfileCompleted,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 
   return {
     success: true,
     statusCode: 200,
     message: "User logged in successfully",
     data: {
-      user,
+      user: userData,
       accessToken,
-      refreshToken,
+      // refreshToken,
     },
   };
 };

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
@@ -14,22 +15,44 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    gender: {
+    name: {
       type: String,
-      enum: ["male", "female"],
+      required: true,
     },
-    lookingFor: {
+    phoneNumber: {
       type: String,
-      enum: ["male", "female"],
+      required: true,
+      trim: true,
+      lowercase: true,
+      unique: true,
+    },
+    familyName: {
+      type: String,
+      trim: true,
+      default: "",
     },
     isProfileCompleted: {
       type: Boolean,
       default: false,
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationOtpHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    emailVerificationOtpExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 userSchema.pre("save", async function () {
@@ -39,6 +62,23 @@ userSchema.pre("save", async function () {
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.isEmailOtpValid = function (candidateOtp) {
+  if (!candidateOtp || !this.emailVerificationOtpHash) return false;
+  if (
+    !this.emailVerificationOtpExpiresAt ||
+    this.emailVerificationOtpExpiresAt < new Date()
+  ) {
+    return false;
+  }
+
+  const candidateHash = crypto
+    .createHash("sha256")
+    .update(String(candidateOtp))
+    .digest("hex");
+
+  return candidateHash === this.emailVerificationOtpHash;
 };
 
 module.exports = mongoose.model("User", userSchema);
