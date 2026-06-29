@@ -49,6 +49,26 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    socialAccounts: [
+      {
+        source: {
+          type: String,
+          enum: ["google", "facebook", "apple"],
+          required: true,
+          lowercase: true,
+          trim: true,
+        },
+        idToken: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        linkedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
