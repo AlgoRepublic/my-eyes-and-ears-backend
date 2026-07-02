@@ -6,10 +6,12 @@ const userSchema = new mongoose.Schema(
   {
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
       lowercase: true,
+      default: null,
     },
     password: {
       type: String,
@@ -22,10 +24,43 @@ const userSchema = new mongoose.Schema(
     },
     phoneNumber: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
       lowercase: true,
       unique: true,
+      sparse: true,
+      default: null,
+    },
+    role: {
+      type: String,
+      enum: ["caregiver", "parent"],
+      required: true,
+    },
+    relation: {
+      type: String,
+      required: false,
+      default: null,
+    },
+    avatarColor: {
+      type: String,
+      default: null,
+    },
+    image: {
+      type: String,
+      default: null,
+    },
+    caregiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    familyInvitationCode: {
+      type: String,
+      default: null,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
     },
     familyName: {
       type: String,
