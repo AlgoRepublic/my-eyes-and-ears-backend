@@ -7,8 +7,6 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: false,
-      unique: true,
-      sparse: true,
       trim: true,
       lowercase: true,
       default: null,
@@ -27,8 +25,6 @@ const userSchema = new mongoose.Schema(
       required: false,
       trim: true,
       lowercase: true,
-      unique: true,
-      sparse: true,
       default: null,
     },
     role: {
@@ -57,8 +53,6 @@ const userSchema = new mongoose.Schema(
     familyInvitationCode: {
       type: String,
       default: null,
-      unique: true,
-      sparse: true,
       trim: true,
       uppercase: true,
     },
@@ -146,5 +140,35 @@ userSchema.methods.isEmailOtpValid = function (candidateOtp) {
 
   return candidateHash === this.emailVerificationOtpHash;
 };
+
+userSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: { $type: "string" },
+    },
+  },
+);
+
+userSchema.index(
+  { phoneNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      phoneNumber: { $type: "string" },
+    },
+  },
+);
+
+userSchema.index(
+  { familyInvitationCode: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      familyInvitationCode: { $type: "string" },
+    },
+  },
+);
 
 module.exports = mongoose.model("User", userSchema);
