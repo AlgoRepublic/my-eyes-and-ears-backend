@@ -1,9 +1,9 @@
 const { asyncMiddleware } = require("../../../../middlewares/async");
-const { socialLoginService } = require("../../../../services/auth/socialLogin");
+const { parentLoginService } = require("../../../../services/auth/parentLogin");
 
 module.exports = asyncMiddleware(async (req, res, next) => {
-  const { email, idToken, source, role } = { ...req.body, ...req.query };
-  const data = await socialLoginService(email, idToken, source, role);
+  const { invitationCode, role } = { ...req.body, ...req.query };
+  const data = await parentLoginService(invitationCode, role);
 
   next({
     success: true,

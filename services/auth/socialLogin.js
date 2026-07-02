@@ -11,7 +11,7 @@ const signAccessToken = (user) => {
   });
 };
 
-const socialLoginService = async (email, idToken, source) => {
+const socialLoginService = async (email, idToken, source, role) => {
   const normalizedEmail = String(email || "")
     .toLowerCase()
     .trim();
@@ -44,6 +44,7 @@ const socialLoginService = async (email, idToken, source) => {
       isEmailVerified: true,
       emailVerificationOtpHash: null,
       emailVerificationOtpExpiresAt: null,
+      role,
       socialAccounts: [
         {
           source: normalizedSource,
