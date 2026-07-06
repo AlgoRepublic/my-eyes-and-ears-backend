@@ -4,7 +4,7 @@ const {
 } = require("../../../../services/user/updateProfile");
 
 module.exports = asyncMiddleware(async (req, res, next) => {
-  const data = await updateProfileService(req.user.id, req.body);
+  const data = await updateProfileService(req.user.id, req.body, req.files);
 
   next({
     success: true,
