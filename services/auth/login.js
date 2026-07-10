@@ -34,7 +34,7 @@ const loginService = async (email, password) => {
 
   if (!user.password) {
     throw new CustomError(
-      "Password is not set for this account. Please login with social provider or setup password using forgot password.",
+      "Password is not set for this account. Please login with social provider",
       [],
       400,
     );
