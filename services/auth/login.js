@@ -69,6 +69,7 @@ const loginService = async (email, password) => {
     isProfileCompleted: user.isProfileCompleted,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    accessToken,
   };
 
   return {
@@ -77,7 +78,7 @@ const loginService = async (email, password) => {
     message: "User logged in successfully",
     data: {
       user: userData,
-      accessToken,
+      // accessToken,
       // refreshToken,
     },
   };

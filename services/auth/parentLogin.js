@@ -71,44 +71,45 @@ const parentLoginService = async (invitationCode, role) => {
       isProfileCompleted: parentUser.isProfileCompleted,
       createdAt: parentUser.createdAt,
       updatedAt: parentUser.updatedAt,
+      accessibilities: profileSetting
+        ? {
+            id: profileSetting._id,
+            userId: profileSetting.userId,
+            fontSize: profileSetting.fontSize,
+            highContrast: profileSetting.highContrast,
+            voiceAssistance: profileSetting.voiceAssistance,
+            createdAt: profileSetting.createdAt,
+            updatedAt: profileSetting.updatedAt,
+          }
+        : null,
+      medicationDuesCount: medications.filter((med) => med.status === "due")
+        .length,
+      medications,
+      contacts: contacts.map((item) => ({
+        id: item._id,
+        userId: item.userId,
+        name: item.name,
+        phoneNumber: item.phoneNumber,
+        relationship: item.relationship,
+        isPrimary: item.isPrimary,
+        isActive: item.isActive,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+      checkinReminders: checkinReminders.map((item) => ({
+        id: item._id,
+        userId: item.userId,
+        time: item.time,
+        label: item.label,
+        isEnabled: item.isEnabled,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+      upcomingAppointment: dashboardAppointments.upcomingAppointment,
+      appointments: dashboardAppointments.appointments,
+      accessToken,
     },
-    profileSetting: profileSetting
-      ? {
-          id: profileSetting._id,
-          userId: profileSetting.userId,
-          fontSize: profileSetting.fontSize,
-          highContrast: profileSetting.highContrast,
-          voiceAssistance: profileSetting.voiceAssistance,
-          createdAt: profileSetting.createdAt,
-          updatedAt: profileSetting.updatedAt,
-        }
-      : null,
-    medicationDuesCount: medications.filter((med) => med.status === "due")
-      .length,
-    medications,
-    contacts: contacts.map((item) => ({
-      id: item._id,
-      userId: item.userId,
-      name: item.name,
-      phoneNumber: item.phoneNumber,
-      relationship: item.relationship,
-      isPrimary: item.isPrimary,
-      isActive: item.isActive,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-    })),
-    checkinReminders: checkinReminders.map((item) => ({
-      id: item._id,
-      userId: item.userId,
-      time: item.time,
-      label: item.label,
-      isEnabled: item.isEnabled,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-    })),
-    upcomingAppointment: dashboardAppointments.upcomingAppointment,
-    appointments: dashboardAppointments.appointments,
-    accessToken,
+
     message: "Parent login successful",
   };
 };
