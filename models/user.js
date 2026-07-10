@@ -69,6 +69,11 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // this alert is for caregiver to get notified after 5 mnt if parent checkins
+    caregiverMissedCheckinAlert: {
+      type: Boolean,
+      default: false,
+    },
     emailVerificationOtpHash: {
       type: String,
       default: null,
