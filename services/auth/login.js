@@ -24,13 +24,13 @@ const loginService = async (email, password) => {
     throw new CustomError("Invalid email or password");
   }
 
-  if (!user.isEmailVerified) {
-    throw new CustomError(
-      "Please verify your email with OTP before logging in",
-      [],
-      403,
-    );
-  }
+  // if (!user.isEmailVerified) {
+  //   throw new CustomError(
+  //     "Please verify your email with OTP before logging in",
+  //     [],
+  //     403,
+  //   );
+  // }
 
   if (!user.password) {
     throw new CustomError(
