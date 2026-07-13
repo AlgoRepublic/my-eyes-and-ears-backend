@@ -91,8 +91,8 @@ const socialLoginService = async (email, idToken, source, role) => {
       })),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      accessToken,
     },
-    accessToken,
     message: "Social login successful",
   };
 };

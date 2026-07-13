@@ -67,8 +67,9 @@ const verifyEmailOtpService = async (email, otp) => {
       familyName: user.familyName,
       isEmailVerified: user.isEmailVerified,
       isProfileCompleted: user.isProfileCompleted,
+      accessToken,
     },
-    accessToken,
+
     // refreshToken,
     message: "Email verified successfully",
   };
