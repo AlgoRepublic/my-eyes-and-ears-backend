@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { normalizeFcmToken } = require("./fcmToken");
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -21,7 +22,14 @@ const hashOtp = (otp) => {
  * @param {string} phoneNumber - The user's phone number.
  * @returns {Promise<Object>} The created user object.
  */
-const signupService = async (email, password, name, phoneNumber, role) => {
+const signupService = async (
+  email,
+  password,
+  name,
+  phoneNumber,
+  role,
+  fcmToken,
+) => {
   const normalizedEmail = String(email || "")
     .toLowerCase()
     .trim();
@@ -36,6 +44,7 @@ const signupService = async (email, password, name, phoneNumber, role) => {
 
   const otp = generateSixDigitOtp();
   const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const normalizedFcmToken = normalizeFcmToken(fcmToken);
 
   let user;
 
@@ -46,6 +55,7 @@ const signupService = async (email, password, name, phoneNumber, role) => {
       name,
       phoneNumber: normalizedPhoneNumber || null,
       role,
+      fcmTokens: normalizedFcmToken ? [normalizedFcmToken] : [],
       isEmailVerified: false,
       emailVerificationOtpHash: hashOtp(otp),
       emailVerificationOtpExpiresAt: otpExpiresAt,

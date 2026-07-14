@@ -12,7 +12,7 @@ const updateProfileService = async (userId, payload, files = []) => {
     throw new CustomError("User not found", [], 404);
   }
 
-  const { familyName } = payload || {};
+  const { familyName, currentPassword, newPassword } = payload || {};
   const updates = {};
   const imageFile = Array.isArray(files)
     ? files.find((file) => file.fieldname === "image")
@@ -21,6 +21,32 @@ const updateProfileService = async (userId, payload, files = []) => {
 
   if (familyName !== undefined) {
     updates.familyName = String(familyName).trim();
+  }
+
+  if (currentPassword !== undefined || newPassword !== undefined) {
+    const normalizedCurrentPassword = String(currentPassword || "").trim();
+    const normalizedNewPassword = String(newPassword || "").trim();
+    const hasExistingPassword = Boolean(user.password);
+
+    if (!normalizedNewPassword) {
+      throw new CustomError("newPassword is required", [], 400);
+    }
+
+    if (hasExistingPassword && !normalizedCurrentPassword) {
+      throw new CustomError("currentPassword is required", [], 400);
+    }
+
+    if (hasExistingPassword) {
+      const isCurrentPasswordValid = await user.comparePassword(
+        normalizedCurrentPassword,
+      );
+
+      if (!isCurrentPasswordValid) {
+        throw new CustomError("Current password is incorrect", [], 400);
+      }
+    }
+
+    updates.password = normalizedNewPassword;
   }
 
   if (imageFile) {

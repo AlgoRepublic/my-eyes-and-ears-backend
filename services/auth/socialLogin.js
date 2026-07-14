@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { addFcmTokenToUser, normalizeFcmToken } = require("./fcmToken");
 
 const ALLOWED_SOCIAL_SOURCES = ["google", "facebook", "apple"];
 
@@ -11,7 +12,7 @@ const signAccessToken = (user) => {
   });
 };
 
-const socialLoginService = async (email, idToken, source, role) => {
+const socialLoginService = async (email, idToken, source, role, fcmToken) => {
   const normalizedEmail = String(email || "")
     .toLowerCase()
     .trim();
@@ -28,6 +29,7 @@ const socialLoginService = async (email, idToken, source, role) => {
   }
 
   const socialIdToken = String(idToken).trim();
+  const normalizedFcmToken = normalizeFcmToken(fcmToken);
   let user = await User.findOne({ email: normalizedEmail });
   if (!user) {
     const generatedName = normalizedEmail.split("@")[0] || "social-user";
@@ -45,6 +47,7 @@ const socialLoginService = async (email, idToken, source, role) => {
       emailVerificationOtpHash: null,
       emailVerificationOtpExpiresAt: null,
       role,
+      fcmTokens: normalizedFcmToken ? [normalizedFcmToken] : [],
       socialAccounts: [
         {
           source: normalizedSource,
@@ -71,6 +74,7 @@ const socialLoginService = async (email, idToken, source, role) => {
     }
 
     user.isEmailVerified = true;
+    addFcmTokenToUser(user, normalizedFcmToken);
     await user.save();
   }
 

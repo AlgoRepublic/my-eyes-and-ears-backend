@@ -9,6 +9,7 @@ const {
 const {
   getDashboardAppointments,
 } = require("../appointment/dashboardAppointments");
+const { addFcmTokenToUser } = require("./fcmToken");
 const { CustomError } = require("../../utils/error");
 
 const signAccessToken = (user) => {
@@ -17,7 +18,7 @@ const signAccessToken = (user) => {
   });
 };
 
-const parentLoginService = async (invitationCode, role) => {
+const parentLoginService = async (invitationCode, role, fcmToken) => {
   const normalizedInvitationCode = String(invitationCode || "")
     .trim()
     .toUpperCase();
@@ -40,6 +41,11 @@ const parentLoginService = async (invitationCode, role) => {
 
   if (!parentUser) {
     throw new CustomError("Invalid invitation code", [], 404);
+  }
+
+  const hasUpdatedFcmToken = addFcmTokenToUser(parentUser, fcmToken);
+  if (hasUpdatedFcmToken) {
+    await parentUser.save();
   }
 
   const [
