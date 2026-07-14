@@ -58,7 +58,13 @@ const verifyEmailOtpService = async (email, otp) => {
   await user.save();
 
   const accessToken = signAccessToken(user);
-  // const refreshToken = signRefreshToken();
+  const refreshToken = jwt.sign(
+    { id: user.id, type: "refresh" },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
+    },
+  );
 
   return {
     user: {
@@ -70,9 +76,8 @@ const verifyEmailOtpService = async (email, otp) => {
       isEmailVerified: user.isEmailVerified,
       isProfileCompleted: user.isProfileCompleted,
       accessToken,
+      refreshToken,
     },
-
-    // refreshToken,
     message: "OTP verified successfully.",
   };
 };

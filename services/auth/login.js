@@ -62,8 +62,13 @@ const loginService = async (email, password, fcmToken) => {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1m",
     },
   );
-
-  const refreshToken = crypto.randomBytes(64).toString("hex");
+  const refreshToken = jwt.sign(
+    { id: user.id, type: "refresh" },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
+    },
+  );
 
   const userData = {
     id: user._id,
@@ -77,6 +82,7 @@ const loginService = async (email, password, fcmToken) => {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     accessToken,
+    refreshToken,
   };
 
   return {
@@ -85,8 +91,6 @@ const loginService = async (email, password, fcmToken) => {
     message: "User logged in successfully",
     data: {
       user: userData,
-      // accessToken,
-      // refreshToken,
     },
   };
 };

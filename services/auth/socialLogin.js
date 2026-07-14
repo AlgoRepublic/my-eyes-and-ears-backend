@@ -140,6 +140,13 @@ const socialLoginService = async (
   }
 
   const accessToken = signAccessToken(user);
+  const refreshToken = jwt.sign(
+    { id: user.id, type: "refresh" },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
+    },
+  );
 
   return {
     user: {
@@ -159,6 +166,7 @@ const socialLoginService = async (
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       accessToken,
+      refreshToken,
     },
     message: "Social login successful",
   };
