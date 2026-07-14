@@ -79,6 +79,7 @@ const signupService = async (
     phoneNumber: user.phoneNumber,
     isEmailVerified: user.isEmailVerified,
     role: user.role,
+    hasPassword: Boolean(user.password),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

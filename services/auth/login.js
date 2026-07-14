@@ -73,6 +73,7 @@ const loginService = async (email, password, fcmToken) => {
     familyName: user.familyName,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
+    hasPassword: Boolean(user.password),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     accessToken,

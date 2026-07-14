@@ -75,6 +75,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       caregiverId: parentUser.caregiverId,
       familyInvitationCode: parentUser.familyInvitationCode,
       isProfileCompleted: parentUser.isProfileCompleted,
+      hasPassword: Boolean(user.password),
       createdAt: parentUser.createdAt,
       updatedAt: parentUser.updatedAt,
       accessibilities: profileSetting
