@@ -76,6 +76,7 @@ const updateProfileService = async (userId, payload, files = []) => {
       avatarColor: user.avatarColor,
       isEmailVerified: user.isEmailVerified,
       isProfileCompleted: user.isProfileCompleted,
+      hasPassword: Boolean(user.password),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },
