@@ -26,18 +26,18 @@ const verifyEmailOtpService = async (email, otp) => {
     throw new CustomError("User not found", [], 404);
   }
 
-  if (user.isEmailVerified) {
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        phoneNumber: user.phoneNumber,
-        isEmailVerified: user.isEmailVerified,
-      },
-      message: "Email is already verified",
-    };
-  }
+  // if (user.isEmailVerified) {
+  //   return {
+  //     user: {
+  //       id: user._id,
+  //       email: user.email,
+  //       name: user.name,
+  //       phoneNumber: user.phoneNumber,
+  //       isEmailVerified: user.isEmailVerified,
+  //     },
+  //     message: "Email is already verified",
+  //   };
+  // }
   if (process.env.NODE_ENV !== "production") {
     console.log("DEBUG: OTP validation skipped in non-production environment");
   } else {
@@ -73,7 +73,7 @@ const verifyEmailOtpService = async (email, otp) => {
     },
 
     // refreshToken,
-    message: "Email verified successfully",
+    message: "OTP verified successfully.",
   };
 };
 

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { protect } = require("../middlewares/authMiddleware");
 const login = require("../controllers/api/v1/auth/login");
 const signup = require("../controllers/api/v1/auth/signup");
 const forgotPassword = require("../controllers/api/v1/auth/forgotPassword");
@@ -13,8 +14,9 @@ router.post("/login", login);
 router.post("/signup", signup);
 router.post("/forgotPassword", forgotPassword);
 router.post("/forgot-password", forgotPassword);
-router.post("/resetPassword", resetPassword);
-router.post("/reset-password", resetPassword);
+
+router.post("/resetPassword", protect, resetPassword);
+router.post("/reset-password", protect, resetPassword);
 router.post("/resendOtp", resendEmailOtp);
 router.post("/resend-otp", resendEmailOtp);
 router.post("/resend-email-otp", resendEmailOtp);

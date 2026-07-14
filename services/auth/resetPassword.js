@@ -6,13 +6,13 @@ const hashOtp = (otp) => {
   return crypto.createHash("sha256").update(String(otp)).digest("hex");
 };
 
-const resetPasswordService = async (email, otp, newPassword) => {
+const resetPasswordService = async (email, newPassword) => {
   const normalizedEmail = String(email || "")
     .toLowerCase()
     .trim();
 
-  if (!normalizedEmail || !otp || !newPassword) {
-    throw new CustomError("email, otp and newPassword are required", [], 400);
+  if (!normalizedEmail || !newPassword) {
+    throw new CustomError("Email and newPassword are required", [], 400);
   }
 
   const user = await User.findOne({ email: normalizedEmail }).select(
@@ -23,21 +23,21 @@ const resetPasswordService = async (email, otp, newPassword) => {
     throw new CustomError("User not found", [], 404);
   }
 
-  if (!user.forgotPasswordOtpHash || !user.forgotPasswordOtpExpiresAt) {
-    throw new CustomError("Reset OTP not requested", [], 400);
-  }
+  // if (!user.forgotPasswordOtpHash || !user.forgotPasswordOtpExpiresAt) {
+  //   throw new CustomError("Reset OTP not requested", [], 400);
+  // }
 
-  if (user.forgotPasswordOtpExpiresAt < new Date()) {
-    throw new CustomError("OTP expired. Please request a new OTP", [], 400);
-  }
+  // if (user.forgotPasswordOtpExpiresAt < new Date()) {
+  //   throw new CustomError("OTP expired. Please request a new OTP", [], 400);
+  // }
 
-  if (hashOtp(otp) !== user.forgotPasswordOtpHash) {
-    throw new CustomError("Invalid OTP", [], 400);
-  }
+  // if (hashOtp(otp) !== user.forgotPasswordOtpHash) {
+  //   throw new CustomError("Invalid OTP", [], 400);
+  // }
 
   user.password = String(newPassword).trim();
-  user.forgotPasswordOtpHash = null;
-  user.forgotPasswordOtpExpiresAt = null;
+  // user.forgotPasswordOtpHash = null;
+  // user.forgotPasswordOtpExpiresAt = null;
   await user.save();
 
   return {

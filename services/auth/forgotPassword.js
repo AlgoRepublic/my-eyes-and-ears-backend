@@ -40,8 +40,8 @@ const forgotPasswordService = async (email) => {
   const otp = generateSixDigitOtp();
   const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-  user.forgotPasswordOtpHash = hashOtp(otp);
-  user.forgotPasswordOtpExpiresAt = otpExpiresAt;
+  user.emailVerificationOtpHash = hashOtp(otp);
+  user.emailVerificationOtpExpiresAt = otpExpiresAt;
   await user.save();
 
   const reset = {
