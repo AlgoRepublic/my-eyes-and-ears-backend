@@ -4,8 +4,8 @@ const {
 } = require("../../../../services/auth/resetPassword");
 
 module.exports = asyncMiddleware(async (req, res, next) => {
-  const { email, otp, newPassword } = { ...req.body, ...req.query };
-  const data = await resetPasswordService(email, otp, newPassword);
+  const { email, newPassword } = { ...req.body, ...req.query };
+  const data = await resetPasswordService(email, newPassword);
 
   next({
     success: true,
