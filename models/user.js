@@ -45,6 +45,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    fcmTokens: {
+      type: [String],
+      default: [],
+    },
     caregiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

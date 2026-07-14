@@ -4,8 +4,9 @@ const { CustomError } = require("../../utils/error");
 const { joiValidate, joiFormatErrors } = require("../../utils/joi");
 const { loginSchema } = require("../../utils/validation");
 const User = require("../../models/user");
+const { addFcmTokenToUser } = require("./fcmToken");
 
-const loginService = async (email, password) => {
+const loginService = async (email, password, fcmToken) => {
   const { error } = await joiValidate(loginSchema, {
     email,
     password,
@@ -47,6 +48,11 @@ const loginService = async (email, password) => {
   console.log("LOGIN DEBUG: Password Valid?", isPasswordValid);
   if (!isPasswordValid) {
     throw new CustomError("Invalid email or password");
+  }
+
+  const hasUpdatedFcmToken = addFcmTokenToUser(user, fcmToken);
+  if (hasUpdatedFcmToken) {
+    await user.save();
   }
 
   const accessToken = jwt.sign(

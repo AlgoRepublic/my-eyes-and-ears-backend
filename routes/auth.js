@@ -9,6 +9,7 @@ const resendEmailOtp = require("../controllers/api/v1/auth/resendEmailOtp");
 const verifyEmailOtp = require("../controllers/api/v1/auth/verifyEmailOtp");
 const socialLogin = require("../controllers/api/v1/auth/socialLogin");
 const parentLogin = require("../controllers/api/v1/auth/parentLogin");
+const logout = require("../controllers/api/v1/auth/logout");
 
 router.post("/login", login);
 router.post("/signup", signup);
@@ -27,5 +28,7 @@ router.post("/socialLogin", socialLogin);
 router.post("/social-login", socialLogin);
 router.post("/parentLogin", parentLogin);
 router.post("/parent-login", parentLogin);
+router.post("/logout", protect, logout);
+router.post("/log-out", protect, logout);
 
 module.exports = router;
