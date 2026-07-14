@@ -48,16 +48,18 @@ const addMemberService = async (currentUser, data = {}) => {
   }
 
   const userPayload = data.user || {};
-  const elderModePayload = data.elderMode || {};
-  const medicationsPayload = Array.isArray(data.medications)
-    ? data.medications
+  const elderModePayload = userPayload?.elderMode || {};
+  const medicationsPayload = Array.isArray(userPayload?.medications)
+    ? userPayload.medications
     : [];
-  const contactsPayload = Array.isArray(data.contacts) ? data.contacts : [];
-  const remindersPayload = Array.isArray(data?.checkins?.reminders)
-    ? data.checkins.reminders
+  const contactsPayload = Array.isArray(userPayload?.contacts)
+    ? userPayload.contacts
     : [];
-  const appointmentsPayload = Array.isArray(data.appointments)
-    ? data.appointments
+  const remindersPayload = Array.isArray(userPayload?.checkins?.reminders)
+    ? userPayload.checkins.reminders
+    : [];
+  const appointmentsPayload = Array.isArray(userPayload?.appointments)
+    ? userPayload.appointments
     : [];
 
   const name = String(userPayload.name || "").trim();

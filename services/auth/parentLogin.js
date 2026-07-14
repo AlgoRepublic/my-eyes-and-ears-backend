@@ -63,6 +63,13 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
   ]);
 
   const accessToken = signAccessToken(parentUser);
+  const refreshToken = jwt.sign(
+    { id: parentUser.id, type: "refresh" },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
+    },
+  );
 
   return {
     user: {
@@ -75,7 +82,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       caregiverId: parentUser.caregiverId,
       familyInvitationCode: parentUser.familyInvitationCode,
       isProfileCompleted: parentUser.isProfileCompleted,
-      hasPassword: Boolean(user.password),
+      hasPassword: Boolean(parentUser.password),
       createdAt: parentUser.createdAt,
       updatedAt: parentUser.updatedAt,
       accessibilities: profileSetting
@@ -115,6 +122,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       upcomingAppointment: dashboardAppointments.upcomingAppointment,
       appointments: dashboardAppointments.appointments,
       accessToken,
+      refreshToken,
     },
 
     message: "Parent login successful",
