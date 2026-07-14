@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { saveProfileImage } = require("../../utils/fileStorage");
 const { addFcmTokenToUser, normalizeFcmToken } = require("./fcmToken");
 
 const ALLOWED_SOCIAL_SOURCES = ["google", "facebook", "apple"];
@@ -12,7 +13,56 @@ const signAccessToken = (user) => {
   });
 };
 
-const socialLoginService = async (email, idToken, source, role, fcmToken) => {
+const downloadImageToProfileFile = async (imageUrl, userId) => {
+  if (!imageUrl) {
+    return null;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(imageUrl);
+  } catch (error) {
+    throw new CustomError("Invalid image URL", [], 400);
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new CustomError("Invalid image URL", [], 400);
+  }
+
+  let response;
+  try {
+    response = await fetch(parsedUrl.toString());
+  } catch (error) {
+    throw new CustomError("Unable to download social login image", [], 400);
+  }
+
+  if (!response.ok) {
+    throw new CustomError("Unable to download social login image", [], 400);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  return saveProfileImage(
+    {
+      buffer,
+      mimetype: contentType,
+      size: buffer.length,
+    },
+    userId,
+  );
+};
+
+const socialLoginService = async (
+  email,
+  idToken,
+  source,
+  role,
+  fcmToken,
+  name,
+  image,
+) => {
   const normalizedEmail = String(email || "")
     .toLowerCase()
     .trim();
@@ -30,19 +80,19 @@ const socialLoginService = async (email, idToken, source, role, fcmToken) => {
 
   const socialIdToken = String(idToken).trim();
   const normalizedFcmToken = normalizeFcmToken(fcmToken);
+  const providedName = String(name || "").trim();
+  const providedImageUrl = String(image || "").trim();
   let user = await User.findOne({ email: normalizedEmail });
   if (!user) {
-    const generatedName = normalizedEmail.split("@")[0] || "social-user";
-    const generatedPhoneNumber =
-      `social-${normalizedSource}-${Date.now()}-${crypto
-        .randomInt(1000, 10000)
-        .toString()}`.toLowerCase();
+    const generatedName =
+      providedName || normalizedEmail.split("@")[0] || "social-user";
 
     user = await User.create({
       email: normalizedEmail,
       password: null,
       name: generatedName,
-      phoneNumber: "",
+      phoneNumber: null,
+      image: null,
       isEmailVerified: true,
       emailVerificationOtpHash: null,
       emailVerificationOtpExpiresAt: null,
@@ -56,6 +106,11 @@ const socialLoginService = async (email, idToken, source, role, fcmToken) => {
         },
       ],
     });
+
+    if (!user.image && providedImageUrl) {
+      user.image = await downloadImageToProfileFile(providedImageUrl, user._id);
+      await user.save();
+    }
   } else {
     const existingIndex = (user.socialAccounts || []).findIndex(
       (account) => account.source === normalizedSource,
@@ -74,6 +129,12 @@ const socialLoginService = async (email, idToken, source, role, fcmToken) => {
     }
 
     user.isEmailVerified = true;
+    if (providedName) {
+      user.name = providedName;
+    }
+    if (!user.image && providedImageUrl) {
+      user.image = await downloadImageToProfileFile(providedImageUrl, user._id);
+    }
     addFcmTokenToUser(user, normalizedFcmToken);
     await user.save();
   }
@@ -85,6 +146,7 @@ const socialLoginService = async (email, idToken, source, role, fcmToken) => {
       id: user._id,
       email: user.email,
       name: user.name,
+      image: user.image,
       phoneNumber: user.phoneNumber,
       familyName: user.familyName,
       isEmailVerified: user.isEmailVerified,
