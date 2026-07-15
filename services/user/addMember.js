@@ -48,15 +48,15 @@ const addMemberService = async (currentUser, data = {}) => {
   }
 
   const userPayload = data.user || {};
-  const elderModePayload = userPayload?.elderMode || {};
+  const elderModePayload = userPayload?.accessibilities || {};
   const medicationsPayload = Array.isArray(userPayload?.medications)
     ? userPayload.medications
     : [];
   const contactsPayload = Array.isArray(userPayload?.contacts)
     ? userPayload.contacts
     : [];
-  const remindersPayload = Array.isArray(userPayload?.checkins?.reminders)
-    ? userPayload.checkins.reminders
+  const remindersPayload = Array.isArray(userPayload?.checkinReminders)
+    ? userPayload.checkinReminders
     : [];
   const appointmentsPayload = Array.isArray(userPayload?.appointments)
     ? userPayload.appointments
