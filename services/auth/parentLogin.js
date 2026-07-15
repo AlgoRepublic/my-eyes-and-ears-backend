@@ -78,6 +78,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       name: parentUser.name,
       email: parentUser.email,
       phoneNumber: parentUser.phoneNumber,
+      image: parentUser.image,
       relation: parentUser.relation,
       caregiverId: parentUser.caregiverId,
       familyInvitationCode: parentUser.familyInvitationCode,

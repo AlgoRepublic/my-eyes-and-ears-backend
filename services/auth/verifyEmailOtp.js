@@ -72,6 +72,7 @@ const verifyEmailOtpService = async (email, otp) => {
       email: user.email,
       name: user.name,
       phoneNumber: user.phoneNumber,
+      image: user.image,
       familyName: user.familyName,
       isEmailVerified: user.isEmailVerified,
       isProfileCompleted: user.isProfileCompleted,
