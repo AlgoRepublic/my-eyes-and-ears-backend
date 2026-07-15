@@ -76,6 +76,7 @@ const loginService = async (email, password, fcmToken) => {
     name: user.name,
     phoneNumber: user.phoneNumber,
     familyName: user.familyName,
+    image: user.image,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     hasPassword: Boolean(user.password),
