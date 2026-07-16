@@ -101,6 +101,8 @@ const mapAppointmentResponse = (appointment, status) => {
     date: appointment.date,
     time: appointment.time,
     location: appointment.location,
+    clinicPhone: appointment.clinicPhone,
+    note: appointment.note,
     rider: appointment.rider,
     status,
     createdAt: appointment.createdAt,
