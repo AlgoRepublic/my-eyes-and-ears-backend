@@ -7,6 +7,83 @@ const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
 
+const buildMemberResponse = ({
+  parentUser,
+  profileSetting,
+  medications = [],
+  contacts = [],
+  checkinReminders = [],
+  appointments = [],
+}) => {
+  return {
+    id: parentUser._id,
+    role: parentUser.role,
+    caregiverId: parentUser.caregiverId,
+    name: parentUser.name,
+    email: parentUser.email,
+    phoneNumber: parentUser.phoneNumber,
+    relation: parentUser.relation,
+    avatarColor: parentUser.avatarColor,
+    image: parentUser.image,
+    familyInvitationCode: parentUser.familyInvitationCode,
+    familyName: parentUser.familyName,
+    isProfileCompleted: parentUser.isProfileCompleted,
+    isEmailVerified: parentUser.isEmailVerified,
+    createdAt: parentUser.createdAt,
+    updatedAt: parentUser.updatedAt,
+    medications: medications.map((item) => ({
+      id: item._id,
+      userId: item.userId,
+      name: item.name,
+      dosage: item.dosage,
+      frequency: item.frequency,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      notes: item.notes,
+      time: item.time,
+    })),
+    accessibilities: profileSetting
+      ? {
+          id: profileSetting._id,
+          userId: profileSetting.userId,
+          fontSize: profileSetting.fontSize,
+          highContrast: profileSetting.highContrast,
+          voiceAssistance: profileSetting.voiceAssistance,
+          createdAt: profileSetting.createdAt,
+          updatedAt: profileSetting.updatedAt,
+        }
+      : null,
+    contacts: contacts.map((item) => ({
+      id: item._id,
+      userId: item.userId,
+      name: item.name,
+      phoneNumber: item.phoneNumber,
+      relationship: item.relationship,
+      isPrimary: item.isPrimary,
+    })),
+    checkinReminders: checkinReminders.map((item) => ({
+      id: item._id,
+      userId: item.userId,
+      time: item.time,
+      label: item.label,
+      isEnabled: item.isEnabled,
+    })),
+    appointments: appointments.map((item) => ({
+      id: item._id,
+      userId: item.userId,
+      doctorName: item.doctorName,
+      reason: item.reason,
+      date: item.date,
+      time: item.time,
+      location: item.location,
+      clinicPhone: item.clinicPhone,
+      note: item.note,
+      rider: item.rider,
+      status: item.status,
+    })),
+  };
+};
+
 const generateInvitationCode = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const randomBytes = crypto.randomBytes(6);
@@ -233,69 +310,14 @@ const addMemberService = async (currentUser, data = {}) => {
 
   return {
     user: {
-      id: parentUser._id,
-      role: parentUser.role,
-      caregiverId: parentUser.caregiverId,
-      name: parentUser.name,
-      email: parentUser.email,
-      phoneNumber: parentUser.phoneNumber,
-      relation: parentUser.relation,
-      avatarColor: parentUser.avatarColor,
-      image: parentUser.image,
-      familyInvitationCode: parentUser.familyInvitationCode,
-      familyName: parentUser.familyName,
-      isProfileCompleted: parentUser.isProfileCompleted,
-      isEmailVerified: parentUser.isEmailVerified,
-      createdAt: parentUser.createdAt,
-      updatedAt: parentUser.updatedAt,
-      medications: createdMedications.map((item) => ({
-        id: item._id,
-        userId: item.userId,
-        name: item.name,
-        dosage: item.dosage,
-        frequency: item.frequency,
-        startDate: item.startDate,
-        endDate: item.endDate,
-        notes: item.notes,
-        time: item.time,
-      })),
-      accessibilities: {
-        id: profileSetting._id,
-        userId: profileSetting.userId,
-        fontSize: profileSetting.fontSize,
-        highContrast: profileSetting.highContrast,
-        voiceAssistance: profileSetting.voiceAssistance,
-        createdAt: profileSetting.createdAt,
-        updatedAt: profileSetting.updatedAt,
-      },
-      contacts: createdContacts.map((item) => ({
-        id: item._id,
-        userId: item.userId,
-        name: item.name,
-        phoneNumber: item.phoneNumber,
-        relationship: item.relationship,
-        isPrimary: item.isPrimary,
-      })),
-      checkinReminders: createdReminders.map((item) => ({
-        id: item._id,
-        userId: item.userId,
-        time: item.time,
-        label: item.label,
-        isEnabled: item.isEnabled,
-      })),
-      appointments: createdAppointments.map((item) => ({
-        id: item._id,
-        userId: item.userId,
-        doctorName: item.doctorName,
-        reason: item.reason,
-        date: item.date,
-        time: item.time,
-        location: item.location,
-        clinicPhone: item.clinicPhone,
-        note: item.note,
-        rider: item.rider,
-        status: item.status,
-      })),
+      ...buildMemberResponse({
+        parentUser,
+        profileSetting,
+        medications: createdMedications,
+        contacts: createdContacts,
+        checkinReminders: createdReminders,
+        appointments: createdAppointments,
+      }),
       invitationCode,
     },
 
@@ -305,4 +327,5 @@ const addMemberService = async (currentUser, data = {}) => {
 
 module.exports = {
   addMemberService,
+  buildMemberResponse,
 };
