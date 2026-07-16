@@ -28,6 +28,7 @@ const buildMemberResponse = ({
     familyInvitationCode: parentUser.familyInvitationCode,
     familyName: parentUser.familyName,
     isProfileCompleted: parentUser.isProfileCompleted,
+    missedCheckInAlerts: parentUser.missedCheckInAlerts,
     isEmailVerified: parentUser.isEmailVerified,
     createdAt: parentUser.createdAt,
     updatedAt: parentUser.updatedAt,
@@ -147,6 +148,10 @@ const addMemberService = async (currentUser, data = {}) => {
   const phoneNumber = userPayload.phoneNumber
     ? String(userPayload.phoneNumber).trim()
     : null;
+  const missedCheckInAlerts =
+    userPayload.missedCheckInAlerts !== undefined
+      ? Boolean(userPayload.missedCheckInAlerts)
+      : true;
 
   if (!name) {
     throw new CustomError("Parent name is required", [], 400);
@@ -188,6 +193,7 @@ const addMemberService = async (currentUser, data = {}) => {
       familyInvitationCode: invitationCode,
       familyName: userPayload.familyName || "",
       isProfileCompleted: false,
+      missedCheckInAlerts,
       isEmailVerified: false,
       password: null,
     });
