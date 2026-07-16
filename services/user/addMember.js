@@ -7,18 +7,16 @@ const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
 
-const INVITATION_PREFIX = "FAM";
-
 const generateInvitationCode = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const randomBytes = crypto.randomBytes(6);
-  let suffix = "";
+  let code = "";
 
   for (let index = 0; index < randomBytes.length; index += 1) {
-    suffix += alphabet[randomBytes[index] % alphabet.length];
+    code += alphabet[randomBytes[index] % alphabet.length];
   }
 
-  return `${INVITATION_PREFIX}-${suffix}`;
+  return code;
 };
 
 const buildUniqueInvitationCode = async () => {
