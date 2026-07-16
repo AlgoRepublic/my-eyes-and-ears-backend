@@ -69,6 +69,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    missedCheckInAlerts: {
+      type: Boolean,
+      default: true,
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,
