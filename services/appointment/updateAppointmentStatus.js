@@ -52,6 +52,8 @@ const updateAppointmentStatusService = async ({
     date: updatedAppointment.date,
     time: updatedAppointment.time,
     location: updatedAppointment.location,
+    clinicPhone: updatedAppointment.clinicPhone,
+    note: updatedAppointment.note,
     rider: updatedAppointment.rider,
     status: computedStatus,
     createdAt: updatedAppointment.createdAt,

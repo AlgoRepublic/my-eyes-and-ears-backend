@@ -32,6 +32,16 @@ const appointmentSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    clinicPhone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    note: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     rider: {
       type: String,
       default: null,

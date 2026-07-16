@@ -184,6 +184,10 @@ const addMemberService = async (currentUser, data = {}) => {
           date: item.date ? new Date(item.date) : null,
           time: item.time ? String(item.time).trim() : null,
           location: item.location ? String(item.location).trim() : null,
+          clinicPhone: item.clinicPhone
+            ? String(item.clinicPhone).trim()
+            : null,
+          note: item.note ? String(item.note).trim() : null,
           rider: item.rider ? String(item.rider).trim() : null,
         }));
 
@@ -287,6 +291,8 @@ const addMemberService = async (currentUser, data = {}) => {
         date: item.date,
         time: item.time,
         location: item.location,
+        clinicPhone: item.clinicPhone,
+        note: item.note,
         rider: item.rider,
         status: item.status,
       })),
