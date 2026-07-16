@@ -201,7 +201,6 @@ const getMembersService = async (currentUser) => {
 
       return {
         ...memberResponse,
-        invitationCode: member.familyInvitationCode,
         recentData: {
           upcomingMedication: pickNearestUpcomingByTime(
             memberResponse.medications,
@@ -217,6 +216,7 @@ const getMembersService = async (currentUser) => {
             memberResponse.appointments,
             now,
           ),
+          sosStatus: null,
         },
       };
     }),

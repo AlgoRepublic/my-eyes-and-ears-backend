@@ -7,6 +7,32 @@ const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
 
+const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+const buildInvitationDetails = (parentUser) => {
+  const lastInvitationTime = parentUser.lastInvitationTime || null;
+  const invitationCode = parentUser.familyInvitationCode || null;
+  const isProfileCompleted = Boolean(parentUser.isProfileCompleted);
+
+  let status = "waiting for activation";
+
+  if (isProfileCompleted) {
+    status = "activated";
+  } else if (lastInvitationTime) {
+    const invitationAgeMs = Date.now() - new Date(lastInvitationTime).getTime();
+
+    if (invitationAgeMs > INVITATION_EXPIRY_MS) {
+      status = "invitation Expired";
+    }
+  }
+
+  return {
+    invitationCode,
+    lastInvitationTime,
+    status,
+  };
+};
+
 const buildMemberResponse = ({
   parentUser,
   profileSetting,
@@ -25,7 +51,8 @@ const buildMemberResponse = ({
     relation: parentUser.relation,
     avatarColor: parentUser.avatarColor,
     image: parentUser.image,
-    familyInvitationCode: parentUser.familyInvitationCode,
+    location: parentUser.location,
+    invitation: buildInvitationDetails(parentUser),
     familyName: parentUser.familyName,
     isProfileCompleted: parentUser.isProfileCompleted,
     missedCheckInAlerts: parentUser.missedCheckInAlerts,
@@ -148,6 +175,9 @@ const addMemberService = async (currentUser, data = {}) => {
   const phoneNumber = userPayload.phoneNumber
     ? String(userPayload.phoneNumber).trim()
     : null;
+  const location = userPayload.location
+    ? String(userPayload.location).trim()
+    : null;
   const missedCheckInAlerts =
     userPayload.missedCheckInAlerts !== undefined
       ? Boolean(userPayload.missedCheckInAlerts)
@@ -172,6 +202,7 @@ const addMemberService = async (currentUser, data = {}) => {
   }
 
   const invitationCode = await buildUniqueInvitationCode();
+  const lastInvitationTime = new Date();
 
   let parentUser;
   let profileSetting;
@@ -189,8 +220,10 @@ const addMemberService = async (currentUser, data = {}) => {
       relation,
       avatarColor: userPayload.avatarColor || null,
       image: userPayload.image || null,
+      location,
       caregiverId,
       familyInvitationCode: invitationCode,
+      lastInvitationTime,
       familyName: userPayload.familyName || "",
       isProfileCompleted: false,
       missedCheckInAlerts,
@@ -324,7 +357,6 @@ const addMemberService = async (currentUser, data = {}) => {
         checkinReminders: createdReminders,
         appointments: createdAppointments,
       }),
-      invitationCode,
     },
 
     // invitationUrl: `https://api.myeyesandears.com/invite/${invitationCode}`,
