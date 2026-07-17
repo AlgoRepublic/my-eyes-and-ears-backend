@@ -45,6 +45,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    location: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     fcmTokens: {
       type: [String],
       default: [],
@@ -59,6 +64,10 @@ const userSchema = new mongoose.Schema(
       default: null,
       trim: true,
       uppercase: true,
+    },
+    lastInvitationTime: {
+      type: Date,
+      default: null,
     },
     familyName: {
       type: String,
