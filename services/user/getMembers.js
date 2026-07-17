@@ -202,11 +202,14 @@ const getMembersService = async (currentUser) => {
       return {
         ...memberResponse,
         recentData: {
-          upcomingMedication: pickNearestUpcomingByTime(
-            memberResponse.medications,
-            (item) => item.time,
-            now,
-          ),
+          upcomingMedication: (() => {
+            const item = pickNearestUpcomingByTime(
+              memberResponse.medications,
+              (medication) => medication.time,
+              now,
+            );
+            return item ? { ...item, status: "due" } : null;
+          })(),
           upcomingCheckin: pickNearestUpcomingByTime(
             memberResponse.checkinReminders,
             (item) => item.time,

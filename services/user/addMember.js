@@ -14,7 +14,7 @@ const buildInvitationDetails = (parentUser) => {
   const invitationCode = parentUser.familyInvitationCode || null;
   const isProfileCompleted = Boolean(parentUser.isProfileCompleted);
 
-  let status = "waiting for activation";
+  let status = "pending";
 
   if (isProfileCompleted) {
     status = "activated";
@@ -22,7 +22,7 @@ const buildInvitationDetails = (parentUser) => {
     const invitationAgeMs = Date.now() - new Date(lastInvitationTime).getTime();
 
     if (invitationAgeMs > INVITATION_EXPIRY_MS) {
-      status = "invitation Expired";
+      status = "expired";
     }
   }
 
