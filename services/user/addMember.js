@@ -8,13 +8,14 @@ const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+const INVITATION_CODE_LENGTH = 8;
 
 const buildInvitationDetails = (parentUser) => {
   const lastInvitationTime = parentUser.lastInvitationTime || null;
   const invitationCode = parentUser.familyInvitationCode || null;
   const isProfileCompleted = Boolean(parentUser.isProfileCompleted);
 
-  let status = "pending";
+  let status = "waitingForActivation";
 
   if (isProfileCompleted) {
     status = "activated";
@@ -22,7 +23,7 @@ const buildInvitationDetails = (parentUser) => {
     const invitationAgeMs = Date.now() - new Date(lastInvitationTime).getTime();
 
     if (invitationAgeMs > INVITATION_EXPIRY_MS) {
-      status = "expired";
+      status = "invitationExpired";
     }
   }
 
@@ -113,12 +114,12 @@ const buildMemberResponse = ({
 };
 
 const generateInvitationCode = () => {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const randomBytes = crypto.randomBytes(6);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const randomBytes = crypto.randomBytes(INVITATION_CODE_LENGTH);
   let code = "";
 
   for (let index = 0; index < randomBytes.length; index += 1) {
-    code += alphabet[randomBytes[index] % alphabet.length];
+    code += chars[randomBytes[index] % chars.length];
   }
 
   return code;
@@ -137,6 +138,15 @@ const buildUniqueInvitationCode = async () => {
   }
 
   throw new CustomError("Unable to generate invitation code", [], 500);
+};
+
+const isInvitationCodeDuplicateError = (error) => {
+  return (
+    error?.code === 11000 &&
+    (Boolean(error?.keyPattern?.familyInvitationCode) ||
+      Boolean(error?.keyValue?.familyInvitationCode) ||
+      String(error?.message || "").includes("familyInvitationCode"))
+  );
 };
 
 const addMemberService = async (currentUser, data = {}) => {
@@ -201,8 +211,8 @@ const addMemberService = async (currentUser, data = {}) => {
     }
   }
 
-  const invitationCode = await buildUniqueInvitationCode();
   const lastInvitationTime = new Date();
+  let invitationCode = null;
 
   let parentUser;
   let profileSetting;
@@ -212,24 +222,40 @@ const addMemberService = async (currentUser, data = {}) => {
   let createdAppointments = [];
 
   try {
-    parentUser = await User.create({
-      name,
-      email,
-      phoneNumber,
-      role: "parent",
-      relation,
-      avatarColor: userPayload.avatarColor || null,
-      image: userPayload.image || null,
-      location,
-      caregiverId,
-      familyInvitationCode: invitationCode,
-      lastInvitationTime,
-      familyName: userPayload.familyName || "",
-      isProfileCompleted: false,
-      missedCheckInAlerts,
-      isEmailVerified: false,
-      password: null,
-    });
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      invitationCode = await buildUniqueInvitationCode();
+
+      try {
+        parentUser = await User.create({
+          name,
+          email,
+          phoneNumber,
+          role: "parent",
+          relation,
+          avatarColor: userPayload.avatarColor || null,
+          image: userPayload.image || null,
+          location,
+          caregiverId,
+          familyInvitationCode: invitationCode,
+          lastInvitationTime,
+          familyName: userPayload.familyName || "",
+          isProfileCompleted: false,
+          missedCheckInAlerts,
+          isEmailVerified: false,
+          password: null,
+        });
+
+        break;
+      } catch (error) {
+        if (!isInvitationCodeDuplicateError(error) || attempt === 9) {
+          throw error;
+        }
+      }
+    }
+
+    if (!parentUser) {
+      throw new CustomError("Unable to assign unique invitation code", [], 500);
+    }
 
     profileSetting = await ProfileSetting.create({
       userId: parentUser._id,

@@ -1,10 +1,10 @@
+const { CustomError } = require("../../utils/error");
 const User = require("../../models/user");
 const ProfileSetting = require("../../models/profileSetting");
 const Medication = require("../../models/medication");
 const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
-const { CustomError } = require("../../utils/error");
 const { buildMemberResponse } = require("./addMember");
 
 const parseTimeParts = (timeValue) => {
@@ -128,19 +128,9 @@ const pickNearestUpcomingAppointment = (
   return nearest;
 };
 
-const groupByUserId = (items = []) => {
-  return items.reduce((accumulator, item) => {
-    const userId = String(item.userId);
-    if (!accumulator.has(userId)) {
-      accumulator.set(userId, []);
-    }
-    accumulator.get(userId).push(item);
-    return accumulator;
-  }, new Map());
-};
-
-const getMembersService = async (currentUser) => {
+const getMemberDetailService = async (currentUser, userId) => {
   const caregiverId = currentUser?._id || currentUser?.id;
+  const normalizedUserId = String(userId || "").trim();
 
   if (!caregiverId) {
     throw new CustomError("Authenticated caregiver is required", [], 401);
@@ -150,90 +140,77 @@ const getMembersService = async (currentUser) => {
     throw new CustomError("Only caregivers can view family members", [], 403);
   }
 
-  const members = await User.find({
-    caregiverId,
-    role: "parent",
-  }).sort({ createdAt: 1 });
-
-  if (members.length === 0) {
-    return {
-      members: [],
-    };
+  if (!normalizedUserId) {
+    throw new CustomError("userId is required", [], 400);
   }
 
-  const memberIds = members.map((member) => member._id);
+  const parentUser = await User.findOne({
+    _id: normalizedUserId,
+    caregiverId,
+    role: "parent",
+  });
+
+  if (!parentUser) {
+    throw new CustomError("Parent member not found", [], 404);
+  }
 
   const [
-    profileSettings,
+    profileSetting,
     medications,
     contacts,
     checkinReminders,
     appointments,
   ] = await Promise.all([
-    ProfileSetting.find({ userId: { $in: memberIds } }),
-    Medication.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
-    Contact.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
-    CheckinReminder.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
-    Appointment.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
+    ProfileSetting.findOne({ userId: parentUser._id }),
+    Medication.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
+    Contact.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
+    CheckinReminder.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
+    Appointment.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
   ]);
 
-  const profileSettingByUserId = profileSettings.reduce((accumulator, item) => {
-    accumulator.set(String(item.userId), item);
-    return accumulator;
-  }, new Map());
+  const memberResponse = buildMemberResponse({
+    parentUser,
+    profileSetting,
+    medications,
+    contacts,
+    checkinReminders,
+    appointments,
+  });
 
-  const medicationsByUserId = groupByUserId(medications);
-  const contactsByUserId = groupByUserId(contacts);
-  const remindersByUserId = groupByUserId(checkinReminders);
-  const appointmentsByUserId = groupByUserId(appointments);
   const now = new Date();
+  const member = {
+    ...memberResponse,
+    recentData: {
+      upcomingMedication: (() => {
+        const item = pickNearestUpcomingByTime(
+          memberResponse.medications,
+          (medication) => medication.time,
+          now,
+        );
+        return item ? { ...item, status: "due" } : null;
+      })(),
+      upcomingCheckin: pickNearestUpcomingByTime(
+        memberResponse.checkinReminders,
+        (item) => item.time,
+        now,
+      ),
+      upcomingAppointment: pickNearestUpcomingAppointment(
+        memberResponse.appointments,
+        now,
+      ),
+      sosStatus: null,
+    },
+  };
+
+  if (!member) {
+    throw new CustomError("Member not found", [], 404);
+  }
 
   return {
-    members: members.map((member) => {
-      const memberResponse = buildMemberResponse({
-        parentUser: member,
-        profileSetting: profileSettingByUserId.get(String(member._id)) || null,
-        medications: medicationsByUserId.get(String(member._id)) || [],
-        contacts: contactsByUserId.get(String(member._id)) || [],
-        checkinReminders: remindersByUserId.get(String(member._id)) || [],
-        appointments: appointmentsByUserId.get(String(member._id)) || [],
-      });
-
-      const {
-        medications: _medications,
-        checkinReminders: _checkinReminders,
-        appointments: _appointments,
-        contacts: _contacts,
-        ...memberResponseWithoutScheduleData
-      } = memberResponse;
-
-      return {
-        ...memberResponseWithoutScheduleData,
-        recentData: {
-          upcomingMedication: (() => {
-            const item = pickNearestUpcomingByTime(
-              memberResponse.medications,
-              (medication) => medication.time,
-              now,
-            );
-            return item ? { ...item, status: "due" } : null;
-          })(),
-          upcomingCheckin: pickNearestUpcomingByTime(
-            memberResponse.checkinReminders,
-            (item) => item.time,
-            now,
-          ),
-          upcomingAppointment: pickNearestUpcomingAppointment(
-            memberResponse.appointments,
-            now,
-          ),
-          sosStatus: null,
-        },
-      };
-    }),
+    member,
   };
 };
 
 module.exports = {
-  getMembersService,
+  getMemberDetailService,
 };
