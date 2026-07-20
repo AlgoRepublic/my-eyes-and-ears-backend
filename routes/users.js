@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect } = require("../middlewares/authMiddleware");
 const updateProfile = require("../controllers/api/v1/users/updateProfile");
 const addMember = require("../controllers/api/v1/users/addMember");
+const updateMember = require("../controllers/api/v1/users/updateMember");
 const getMembers = require("../controllers/api/v1/users/getMembers");
 const getMemberDetail = require("../controllers/api/v1/users/getMemberDetail");
 const {
@@ -37,6 +38,7 @@ router.get("/members", getMembers);
 router.get("/getMembers", getMembers);
 router.get("/member/:userId", getMemberDetail);
 router.get("/getMemberDetail/:userId", getMemberDetail);
+router.patch("/members/:userId", updateMember);
 // ==================checkins start==================
 router.post("/members/:userId/checkins", createMemberCheckin);
 router.patch("/members/:userId/checkins/:checkinId", updateMemberCheckin);
