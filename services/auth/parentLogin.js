@@ -44,9 +44,9 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
   }
 
   const hasUpdatedFcmToken = addFcmTokenToUser(parentUser, fcmToken);
-  if (hasUpdatedFcmToken) {
-    await parentUser.save();
-  }
+  parentUser.isEmailVerified = true; // Mark email as verified upon successful login
+  parentUser.isProfileCompleted = true; // Mark profile as completed upon successful login
+  await parentUser.save();
 
   const [
     profileSetting,
