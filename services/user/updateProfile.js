@@ -5,6 +5,12 @@ const {
   deleteStoredFile,
 } = require("../../utils/fileStorage");
 
+const normalizeOptionalString = (value) => {
+  if (value === undefined) return undefined;
+  const normalized = String(value || "").trim();
+  return normalized ? normalized : null;
+};
+
 const updateProfileService = async (userId, payload, files = []) => {
   const user = await User.findById(userId);
 
@@ -19,8 +25,58 @@ const updateProfileService = async (userId, payload, files = []) => {
     : null;
   const previousImage = user.image;
 
+  if (payload?.name !== undefined) {
+    const name = String(payload.name || "").trim();
+
+    if (!name) {
+      throw new CustomError("name is required", [], 400);
+    }
+
+    updates.name = name;
+  }
+
+  if (payload?.email !== undefined) {
+    const email = String(payload.email || "")
+      .toLowerCase()
+      .trim();
+
+    if (email) {
+      const existingEmail = await User.findOne({
+        _id: { $ne: user._id },
+        email,
+      }).select("_id");
+
+      if (existingEmail) {
+        throw new CustomError("Email already exists", [], 400);
+      }
+
+      updates.email = email;
+    } else {
+      updates.email = null;
+    }
+  }
+
+  if (payload?.phoneNumber !== undefined) {
+    const phoneNumber = String(payload.phoneNumber || "").trim();
+
+    if (phoneNumber) {
+      const existingPhone = await User.findOne({
+        _id: { $ne: user._id },
+        phoneNumber,
+      }).select("_id");
+
+      if (existingPhone) {
+        throw new CustomError("Phone number already exists", [], 400);
+      }
+
+      updates.phoneNumber = phoneNumber;
+    } else {
+      updates.phoneNumber = null;
+    }
+  }
+
   if (familyName !== undefined) {
-    updates.familyName = String(familyName).trim();
+    updates.familyName = normalizeOptionalString(familyName) || "";
   }
 
   if (currentPassword !== undefined || newPassword !== undefined) {
