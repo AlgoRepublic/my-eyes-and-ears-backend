@@ -28,6 +28,7 @@ const {
   deleteMemberMedication,
 } = require("../controllers/api/v1/users/memberMedications");
 const deleteMember = require("../controllers/api/v1/users/deleteMember");
+const deleteCaregiver = require("../controllers/api/v1/users/deleteCaregiver");
 const updateMedicationStatus = require("../controllers/api/v1/users/updateMedicationStatus");
 const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppointmentStatus");
 
@@ -77,6 +78,8 @@ router.delete(
 );
 // ==================medications end==================
 router.delete("/members/:userId", deleteMember);
+router.delete("/caregivers/:userId", deleteCaregiver);
+router.delete("/caregiver/:userId", deleteCaregiver);
 router.patch("/medications/status", updateMedicationStatus);
 router.patch("/medication/status", updateMedicationStatus);
 router.patch("/appointments/status", updateAppointmentStatus);

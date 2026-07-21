@@ -49,8 +49,49 @@ const ensureParentMemberOrThrow = async (currentUser, memberId) => {
   return parentUser;
 };
 
+const ensurePrimaryCaregiverOrThrow = (currentUser) => {
+  const caregiverId = getCaregiverIdOrThrow(currentUser);
+
+  if (!currentUser?.isPrimary) {
+    throw new CustomError(
+      "Only the primary caregiver can delete caregivers",
+      [],
+      403,
+    );
+  }
+
+  return caregiverId;
+};
+
+const ensureCaregiverMemberOrThrow = async (currentUser, caregiverId) => {
+  ensurePrimaryCaregiverOrThrow(currentUser);
+  const familyId = await getFamilyIdOrThrow(currentUser);
+  const normalizedCaregiverId = ensureObjectIdOrThrow(
+    caregiverId,
+    "caregiverId",
+  );
+
+  const caregiverUser = await User.findOne({
+    _id: normalizedCaregiverId,
+    familyId,
+    role: "caregiver",
+  });
+
+  if (!caregiverUser) {
+    throw new CustomError("Caregiver not found", [], 404);
+  }
+
+  if (caregiverUser.isPrimary) {
+    throw new CustomError("Primary caregiver cannot be deleted", [], 400);
+  }
+
+  return caregiverUser;
+};
+
 module.exports = {
   getCaregiverIdOrThrow,
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
+  ensurePrimaryCaregiverOrThrow,
+  ensureCaregiverMemberOrThrow,
 };
