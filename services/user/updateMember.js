@@ -129,7 +129,7 @@ const updateMemberService = async (
   }
 
   Object.assign(parentUser, updates);
-  parentUser.isProfileCompleted = Boolean(parentUser.familyName);
+  // parentUser.isProfileCompleted = Boolean(parentUser.familyName);
   await parentUser.save();
 
   if (Object.keys(accessibilityUpdates).length > 0) {
