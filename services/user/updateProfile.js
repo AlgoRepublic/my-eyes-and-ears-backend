@@ -114,7 +114,7 @@ const updateProfileService = async (userId, payload, files = []) => {
   }
 
   Object.assign(user, updates);
-  user.isProfileCompleted = Boolean(user.familyName);
+  // user.isProfileCompleted = Boolean(user.familyName);
   await user.save();
 
   if (imageFile && previousImage) {
