@@ -1,4 +1,3 @@
-const crypto = require("crypto");
 const User = require("../../models/user");
 const ProfileSetting = require("../../models/profileSetting");
 const Medication = require("../../models/medication");
@@ -6,33 +5,14 @@ const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
-
-const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-const INVITATION_CODE_LENGTH = 8;
-
-const buildInvitationDetails = (parentUser) => {
-  const lastInvitationTime = parentUser.lastInvitationTime || null;
-  const invitationCode = parentUser.familyInvitationCode || null;
-  const isProfileCompleted = Boolean(parentUser.isProfileCompleted);
-
-  let status = "waitingForActivation";
-
-  if (isProfileCompleted) {
-    status = "activated";
-  } else if (lastInvitationTime) {
-    const invitationAgeMs = Date.now() - new Date(lastInvitationTime).getTime();
-
-    if (invitationAgeMs > INVITATION_EXPIRY_MS) {
-      status = "invitationExpired";
-    }
-  }
-
-  return {
-    invitationCode,
-    lastInvitationTime,
-    status,
-  };
-};
+const { getFamilyIdOrThrow } = require("../family/familyAccess");
+const {
+  getCaregiverIdOrThrow,
+} = require("./memberAccess");
+const {
+  buildInvitationDetails,
+  buildUniqueInvitationCode,
+} = require("./invitation");
 
 const buildMemberResponse = ({
   parentUser,
@@ -46,6 +26,7 @@ const buildMemberResponse = ({
     id: parentUser._id,
     role: parentUser.role,
     caregiverId: parentUser.caregiverId,
+    familyId: parentUser.familyId,
     name: parentUser.name,
     email: parentUser.email,
     phoneNumber: parentUser.phoneNumber,
@@ -113,33 +94,6 @@ const buildMemberResponse = ({
   };
 };
 
-const generateInvitationCode = () => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const randomBytes = crypto.randomBytes(INVITATION_CODE_LENGTH);
-  let code = "";
-
-  for (let index = 0; index < randomBytes.length; index += 1) {
-    code += chars[randomBytes[index] % chars.length];
-  }
-
-  return code;
-};
-
-const buildUniqueInvitationCode = async () => {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const invitationCode = generateInvitationCode();
-    const existing = await User.findOne({
-      familyInvitationCode: invitationCode,
-    }).select("_id");
-
-    if (!existing) {
-      return invitationCode;
-    }
-  }
-
-  throw new CustomError("Unable to generate invitation code", [], 500);
-};
-
 const isInvitationCodeDuplicateError = (error) => {
   return (
     error?.code === 11000 &&
@@ -150,15 +104,8 @@ const isInvitationCodeDuplicateError = (error) => {
 };
 
 const addMemberService = async (currentUser, data = {}) => {
-  const caregiverId = currentUser?._id || currentUser?.id;
-
-  if (!caregiverId) {
-    throw new CustomError("Authenticated caregiver is required", [], 401);
-  }
-
-  if (currentUser?.role && currentUser.role !== "caregiver") {
-    throw new CustomError("Only caregivers can add family members", [], 403);
-  }
+  const caregiverId = getCaregiverIdOrThrow(currentUser);
+  const familyId = await getFamilyIdOrThrow(currentUser);
 
   const userPayload = data.user || {};
   const elderModePayload = userPayload?.accessibilities || {};
@@ -236,6 +183,7 @@ const addMemberService = async (currentUser, data = {}) => {
           image: userPayload.image || null,
           location,
           caregiverId,
+          familyId,
           familyInvitationCode: invitationCode,
           lastInvitationTime,
           familyName: userPayload.familyName || "",

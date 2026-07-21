@@ -27,6 +27,7 @@ const buildUserResponse = async (user) => {
     familyName: user.familyName,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
+    isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
     hasPassword: Boolean(user.password),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,

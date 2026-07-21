@@ -59,6 +59,11 @@ const userSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    familyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Family",
+      default: null,
+    },
     familyInvitationCode: {
       type: String,
       default: null,
@@ -83,6 +88,10 @@ const userSchema = new mongoose.Schema(
       default: true,
     },
     isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isPrimary: {
       type: Boolean,
       default: false,
     },
@@ -189,6 +198,17 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       familyInvitationCode: { $type: "string" },
+    },
+  },
+);
+
+userSchema.index({ familyId: 1, role: 1 });
+userSchema.index(
+  { familyId: 1, role: 1, isPrimary: 1 },
+  {
+    partialFilterExpression: {
+      role: "caregiver",
+      isPrimary: true,
     },
   },
 );

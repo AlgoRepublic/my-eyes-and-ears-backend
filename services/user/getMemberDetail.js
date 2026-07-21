@@ -6,6 +6,10 @@ const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { buildMemberResponse } = require("./addMember");
+const {
+  getCaregiverIdOrThrow,
+} = require("./memberAccess");
+const { getFamilyIdOrThrow } = require("../family/familyAccess");
 
 const parseTimeParts = (timeValue) => {
   if (!timeValue) return null;
@@ -129,16 +133,9 @@ const pickNearestUpcomingAppointment = (
 };
 
 const getMemberDetailService = async (currentUser, userId) => {
-  const caregiverId = currentUser?._id || currentUser?.id;
+  getCaregiverIdOrThrow(currentUser);
+  const familyId = await getFamilyIdOrThrow(currentUser);
   const normalizedUserId = String(userId || "").trim();
-
-  if (!caregiverId) {
-    throw new CustomError("Authenticated caregiver is required", [], 401);
-  }
-
-  if (currentUser?.role && currentUser.role !== "caregiver") {
-    throw new CustomError("Only caregivers can view family members", [], 403);
-  }
 
   if (!normalizedUserId) {
     throw new CustomError("userId is required", [], 400);
@@ -146,7 +143,7 @@ const getMemberDetailService = async (currentUser, userId) => {
 
   const parentUser = await User.findOne({
     _id: normalizedUserId,
-    caregiverId,
+    familyId,
     role: "parent",
   });
 

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { getFamilyIdOrThrow } = require("../family/familyAccess");
 
 const getCaregiverIdOrThrow = (currentUser) => {
   const caregiverId = currentUser?._id || currentUser?.id;
@@ -31,12 +32,13 @@ const ensureObjectIdOrThrow = (value, fieldName) => {
 };
 
 const ensureParentMemberOrThrow = async (currentUser, memberId) => {
-  const caregiverId = getCaregiverIdOrThrow(currentUser);
+  getCaregiverIdOrThrow(currentUser);
+  const familyId = await getFamilyIdOrThrow(currentUser);
   const normalizedMemberId = ensureObjectIdOrThrow(memberId, "memberId");
 
   const parentUser = await User.findOne({
     _id: normalizedMemberId,
-    caregiverId,
+    familyId,
     role: "parent",
   });
 
