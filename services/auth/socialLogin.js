@@ -158,6 +158,7 @@ const socialLoginService = async (
       familyName: user.familyName,
       isEmailVerified: user.isEmailVerified,
       isProfileCompleted: user.isProfileCompleted,
+      isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
       hasPassword: Boolean(user.password),
       socialAccounts: (user.socialAccounts || []).map((account) => ({
         source: account.source,

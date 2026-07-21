@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const { CustomError } = require("../../utils/error");
 const { normalizeFcmToken } = require("./fcmToken");
 
@@ -37,11 +38,6 @@ const signupService = async (
     .trim()
     .toLowerCase();
 
-  // const existingUser = await User.findOne({ email: normalizedEmail });
-  // if (existingUser) {
-  //   throw new CustomError("User already exists", [], 400);
-  // }
-
   const otp = generateSixDigitOtp();
   const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
   const normalizedFcmToken = normalizeFcmToken(fcmToken);
@@ -72,6 +68,17 @@ const signupService = async (
     throw error;
   }
 
+  if (role === "caregiver") {
+    const family = await Family.create({
+      createdBy: user._id,
+      name: "",
+    });
+
+    user.familyId = family._id;
+    user.isPrimary = true;
+    await user.save();
+  }
+
   const userData = {
     id: user._id,
     email: user.email,
@@ -79,6 +86,8 @@ const signupService = async (
     phoneNumber: user.phoneNumber,
     isEmailVerified: user.isEmailVerified,
     role: user.role,
+    familyId: user.familyId || null,
+    isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
     hasPassword: Boolean(user.password),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
