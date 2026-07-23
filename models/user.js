@@ -176,13 +176,17 @@ userSchema.methods.isEmailOtpValid = function (candidateOtp) {
   return candidateHash === this.emailVerificationOtpHash;
 };
 
+const ACTIVE_USER_INDEX_FILTER = {
+  isDeleted: false,
+};
+
 userSchema.index(
   { email: 1 },
   {
     unique: true,
     partialFilterExpression: {
       email: { $type: "string" },
-      isDeleted: { $ne: true },
+      ...ACTIVE_USER_INDEX_FILTER,
     },
   },
 );
@@ -193,7 +197,7 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       phoneNumber: { $type: "string" },
-      isDeleted: { $ne: true },
+      ...ACTIVE_USER_INDEX_FILTER,
     },
   },
 );
@@ -204,7 +208,7 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       familyInvitationCode: { $type: "string" },
-      isDeleted: { $ne: true },
+      ...ACTIVE_USER_INDEX_FILTER,
     },
   },
 );
@@ -216,7 +220,7 @@ userSchema.index(
     partialFilterExpression: {
       role: "caregiver",
       isPrimary: true,
-      isDeleted: { $ne: true },
+      ...ACTIVE_USER_INDEX_FILTER,
     },
   },
 );

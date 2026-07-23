@@ -7,6 +7,10 @@ const connectDB = async () => {
     console.log("✅ MongoDB Connected");
 
     try {
+      await User.updateMany(
+        { isDeleted: { $exists: false } },
+        { $set: { isDeleted: false } },
+      );
       await User.syncIndexes();
       console.log("✅ User indexes synced");
     } catch (indexError) {
