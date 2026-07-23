@@ -4,6 +4,9 @@ const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
 const { saveProfileImage } = require("../../utils/fileStorage");
 const { addFcmTokenToUser, normalizeFcmToken } = require("./fcmToken");
+const {
+  appendCaregiverNotificationSettings,
+} = require("../user/caregiverNotificationSettings");
 
 const ALLOWED_SOCIAL_SOURCES = ["google", "facebook", "apple"];
 
@@ -148,27 +151,29 @@ const socialLoginService = async (
     },
   );
 
+  const userResponse = await appendCaregiverNotificationSettings(user, {
+    id: user._id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+    phoneNumber: user.phoneNumber,
+    familyName: user.familyName,
+    isEmailVerified: user.isEmailVerified,
+    isProfileCompleted: user.isProfileCompleted,
+    isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
+    hasPassword: Boolean(user.password),
+    socialAccounts: (user.socialAccounts || []).map((account) => ({
+      source: account.source,
+      linkedAt: account.linkedAt,
+    })),
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    accessToken,
+    refreshToken,
+  });
+
   return {
-    user: {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      image: user.image,
-      phoneNumber: user.phoneNumber,
-      familyName: user.familyName,
-      isEmailVerified: user.isEmailVerified,
-      isProfileCompleted: user.isProfileCompleted,
-      isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
-      hasPassword: Boolean(user.password),
-      socialAccounts: (user.socialAccounts || []).map((account) => ({
-        source: account.source,
-        linkedAt: account.linkedAt,
-      })),
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      accessToken,
-      refreshToken,
-    },
+    user: userResponse,
     message: "Social login successful",
   };
 };

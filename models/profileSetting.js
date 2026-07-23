@@ -22,8 +22,30 @@ const profileSettingSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    sosAlerts: {
+      type: Boolean,
+      default: true,
+    },
+    missedCheckIns: {
+      type: Boolean,
+      default: true,
+    },
+    missedMedications: {
+      type: Boolean,
+      default: true,
+    },
+    newFamilyMessages: {
+      type: Boolean,
+      default: true,
+    },
+    weeklyDigest: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true },
 );
+
+profileSettingSchema.index({ userId: 1 }, { unique: true });
 
 module.exports = mongoose.model("ProfileSetting", profileSettingSchema);

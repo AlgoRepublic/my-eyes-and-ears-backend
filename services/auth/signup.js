@@ -3,6 +3,9 @@ const User = require("../../models/user");
 const Family = require("../../models/family");
 const { CustomError } = require("../../utils/error");
 const { normalizeFcmToken } = require("./fcmToken");
+const {
+  createCaregiverProfileSetting,
+} = require("../user/caregiverNotificationSettings");
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -77,6 +80,7 @@ const signupService = async (
     user.familyId = family._id;
     user.isPrimary = true;
     await user.save();
+    await createCaregiverProfileSetting(user._id);
   }
 
   const userData = {

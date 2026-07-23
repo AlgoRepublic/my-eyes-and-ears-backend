@@ -5,6 +5,9 @@ const { joiValidate, joiFormatErrors } = require("../../utils/joi");
 const { loginSchema } = require("../../utils/validation");
 const User = require("../../models/user");
 const { addFcmTokenToUser } = require("./fcmToken");
+const {
+  appendCaregiverNotificationSettings,
+} = require("../user/caregiverNotificationSettings");
 
 const loginService = async (email, password, fcmToken) => {
   const { error } = await joiValidate(loginSchema, {
@@ -70,7 +73,7 @@ const loginService = async (email, password, fcmToken) => {
     },
   );
 
-  const userData = {
+  const userData = await appendCaregiverNotificationSettings(user, {
     id: user._id,
     email: user.email,
     name: user.name,
@@ -85,7 +88,7 @@ const loginService = async (email, password, fcmToken) => {
     updatedAt: user.updatedAt,
     accessToken,
     refreshToken,
-  };
+  });
 
   return {
     success: true,

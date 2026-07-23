@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const {
+  appendCaregiverNotificationSettings,
+} = require("../user/caregiverNotificationSettings");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -18,7 +21,7 @@ const buildUserResponse = async (user) => {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
 
-  const userData = {
+  return appendCaregiverNotificationSettings(user, {
     id: user._id,
     email: user.email,
     name: user.name,
@@ -33,9 +36,7 @@ const buildUserResponse = async (user) => {
     updatedAt: user.updatedAt,
     accessToken,
     refreshToken,
-  };
-
-  return userData;
+  });
 };
 
 const refreshUserService = async (refreshToken) => {
