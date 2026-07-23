@@ -9,6 +9,7 @@ const multer = require("multer");
 const connectDB = require("./config/db");
 
 const appRoutes = require("./routes/index");
+const pagesRouter = require("./routes/pages");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ app.use(compression());
 app.use(upload.any());
 //  this is used for some static files that are stored on the server
 app.use("/storage", express.static(path.join(__dirname, "public")));
+app.use("/pages", pagesRouter);
 // Routes
 app.use("/api/v1", appRoutes);
 
