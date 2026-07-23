@@ -8,6 +8,7 @@ const { addFcmTokenToUser } = require("./fcmToken");
 const {
   appendCaregiverNotificationSettings,
 } = require("../user/caregiverNotificationSettings");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const loginService = async (email, password, fcmToken) => {
   const { error } = await joiValidate(loginSchema, {
@@ -21,6 +22,7 @@ const loginService = async (email, password, fcmToken) => {
 
   const user = await User.findOne({
     email: email.toLowerCase(),
+    ...ACTIVE_USER_FILTER,
   });
 
   if (!user) {

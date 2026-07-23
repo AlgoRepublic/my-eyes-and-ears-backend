@@ -7,6 +7,7 @@ const { addFcmTokenToUser, normalizeFcmToken } = require("./fcmToken");
 const {
   appendCaregiverNotificationSettings,
 } = require("../user/caregiverNotificationSettings");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const ALLOWED_SOCIAL_SOURCES = ["google", "facebook", "apple"];
 
@@ -85,7 +86,10 @@ const socialLoginService = async (
   const normalizedFcmToken = normalizeFcmToken(fcmToken);
   const providedName = String(name || "").trim();
   const providedImageUrl = String(image || "").trim();
-  let user = await User.findOne({ email: normalizedEmail });
+  let user = await User.findOne({
+    email: normalizedEmail,
+    ...ACTIVE_USER_FILTER,
+  });
   if (!user) {
     const generatedName =
       providedName || normalizedEmail.split("@")[0] || "social-user";

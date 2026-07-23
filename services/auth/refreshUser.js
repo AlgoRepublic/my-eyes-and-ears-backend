@@ -4,6 +4,7 @@ const { CustomError } = require("../../utils/error");
 const {
   appendCaregiverNotificationSettings,
 } = require("../user/caregiverNotificationSettings");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -69,7 +70,10 @@ const refreshUserService = async (refreshToken) => {
     throw new CustomError("Invalid refresh token payload", [], 401);
   }
 
-  const user = await User.findById(userId);
+  const user = await User.findOne({
+    _id: userId,
+    ...ACTIVE_USER_FILTER,
+  });
   if (!user) {
     throw new CustomError("User not found for refresh token", [], 404);
   }

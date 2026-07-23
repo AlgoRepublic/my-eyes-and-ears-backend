@@ -1,5 +1,6 @@
 const User = require("../../models/user");
 const { ensureCaregiverMemberOrThrow } = require("./memberAccess");
+const { softDeleteUser } = require("../../utils/userSoftDelete");
 
 const deleteCaregiverService = async (currentUser, caregiverId) => {
   const caregiverUser = await ensureCaregiverMemberOrThrow(
@@ -7,7 +8,7 @@ const deleteCaregiverService = async (currentUser, caregiverId) => {
     caregiverId,
   );
 
-  await User.deleteOne({ _id: caregiverUser._id });
+  await softDeleteUser(caregiverUser);
 
   return {
     deletedCaregiverId: String(caregiverUser._id),

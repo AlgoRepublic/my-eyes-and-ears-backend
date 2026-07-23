@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const INVITATION_CODE_LENGTH = 8;
@@ -46,6 +47,7 @@ const buildUniqueInvitationCode = async () => {
     const invitationCode = generateInvitationCode();
     const existing = await User.findOne({
       familyInvitationCode: invitationCode,
+      ...ACTIVE_USER_FILTER,
     }).select("_id");
 
     if (!existing) {

@@ -3,6 +3,7 @@ const User = require("../../models/user");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { getCaregiverIdOrThrow } = require("./memberAccess");
 const { buildMembersListResponse } = require("./buildMembersListResponse");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const buildFamilyName = (family, caregivers = []) => {
   if (family?.name) {
@@ -19,7 +20,10 @@ const getFamilyDetailsService = async (currentUser) => {
 
   const [family, familyUsers] = await Promise.all([
     Family.findById(familyId),
-    User.find({ familyId }).sort({ createdAt: 1 }),
+    User.find({
+      familyId,
+      ...ACTIVE_USER_FILTER,
+    }).sort({ createdAt: 1 }),
   ]);
 
   const members = familyUsers.filter((item) => item.role === "parent");

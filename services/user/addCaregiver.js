@@ -6,6 +6,7 @@ const { getCaregiverIdOrThrow } = require("./memberAccess");
 const {
   createCaregiverProfileSetting,
 } = require("./caregiverNotificationSettings");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 // const { sendCaregiverCredentialsEmail } = require("../notification");
 
 const PASSWORD_LENGTH = 12;
@@ -74,13 +75,19 @@ const addCaregiverService = async (currentUser, data = {}) => {
     );
   }
 
-  const existingEmail = await User.findOne({ email }).select("_id");
+  const existingEmail = await User.findOne({
+    email,
+    ...ACTIVE_USER_FILTER,
+  }).select("_id");
   if (existingEmail) {
     throw new CustomError("Email already exists", [], 400);
   }
 
   if (phoneNumber) {
-    const existingPhone = await User.findOne({ phoneNumber }).select("_id");
+    const existingPhone = await User.findOne({
+      phoneNumber,
+      ...ACTIVE_USER_FILTER,
+    }).select("_id");
     if (existingPhone) {
       throw new CustomError("Phone number already exists", [], 400);
     }

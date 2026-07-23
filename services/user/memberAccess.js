@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const getCaregiverIdOrThrow = (currentUser) => {
   const caregiverId = currentUser?._id || currentUser?.id;
@@ -40,6 +41,7 @@ const ensureParentMemberOrThrow = async (currentUser, memberId) => {
     _id: normalizedMemberId,
     familyId,
     role: "parent",
+    ...ACTIVE_USER_FILTER,
   });
 
   if (!parentUser) {
@@ -75,6 +77,7 @@ const ensureCaregiverMemberOrThrow = async (currentUser, caregiverId) => {
     _id: normalizedCaregiverId,
     familyId,
     role: "caregiver",
+    ...ACTIVE_USER_FILTER,
   });
 
   if (!caregiverUser) {

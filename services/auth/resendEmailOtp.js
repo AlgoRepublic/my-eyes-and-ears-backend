@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -18,9 +19,10 @@ const resendEmailOtpService = async (email) => {
     .toLowerCase()
     .trim();
 
-  const user = await User.findOne({ email: normalizedEmail }).select(
-    "+emailVerificationOtpHash +emailVerificationOtpExpiresAt",
-  );
+  const user = await User.findOne({
+    email: normalizedEmail,
+    ...ACTIVE_USER_FILTER,
+  }).select("+emailVerificationOtpHash +emailVerificationOtpExpiresAt");
 
   if (!user) {
     throw new CustomError("User not found", [], 404);

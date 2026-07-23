@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const hashOtp = (otp) => {
   return crypto.createHash("sha256").update(String(otp)).digest("hex");
@@ -15,9 +16,10 @@ const resetPasswordService = async (email, newPassword) => {
     throw new CustomError("Email and newPassword are required", [], 400);
   }
 
-  const user = await User.findOne({ email: normalizedEmail }).select(
-    "+forgotPasswordOtpHash +forgotPasswordOtpExpiresAt",
-  );
+  const user = await User.findOne({
+    email: normalizedEmail,
+    ...ACTIVE_USER_FILTER,
+  }).select("+forgotPasswordOtpHash +forgotPasswordOtpExpiresAt");
 
   if (!user) {
     throw new CustomError("User not found", [], 404);

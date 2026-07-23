@@ -13,6 +13,7 @@ const {
   buildInvitationDetails,
   buildUniqueInvitationCode,
 } = require("./invitation");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const buildMemberResponse = ({
   parentUser,
@@ -145,14 +146,20 @@ const addMemberService = async (currentUser, data = {}) => {
   }
 
   if (email) {
-    const existingEmail = await User.findOne({ email }).select("_id");
+    const existingEmail = await User.findOne({
+      email,
+      ...ACTIVE_USER_FILTER,
+    }).select("_id");
     if (existingEmail) {
       throw new CustomError("Email already exists", [], 400);
     }
   }
 
   if (phoneNumber) {
-    const existingPhone = await User.findOne({ phoneNumber }).select("_id");
+    const existingPhone = await User.findOne({
+      phoneNumber,
+      ...ACTIVE_USER_FILTER,
+    }).select("_id");
     if (existingPhone) {
       throw new CustomError("Phone number already exists", [], 400);
     }
