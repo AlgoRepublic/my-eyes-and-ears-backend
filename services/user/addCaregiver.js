@@ -3,6 +3,9 @@ const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { getCaregiverIdOrThrow } = require("./memberAccess");
+const {
+  createCaregiverProfileSetting,
+} = require("./caregiverNotificationSettings");
 // const { sendCaregiverCredentialsEmail } = require("../notification");
 
 const PASSWORD_LENGTH = 12;
@@ -106,6 +109,8 @@ const addCaregiverService = async (currentUser, data = {}) => {
       emailVerificationOtpHash: null,
       emailVerificationOtpExpiresAt: null,
     });
+
+    await createCaregiverProfileSetting(caregiverUser._id);
 
     // await sendCaregiverCredentialsEmail({
     //   to: email,
