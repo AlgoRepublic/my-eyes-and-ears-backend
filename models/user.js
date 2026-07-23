@@ -95,6 +95,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
     // this alert is for caregiver to get notified after 5 mnt if parent checkins
     caregiverMissedCheckinAlert: {
       type: Boolean,
@@ -178,6 +182,7 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       email: { $type: "string" },
+      isDeleted: { $ne: true },
     },
   },
 );
@@ -188,6 +193,7 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       phoneNumber: { $type: "string" },
+      isDeleted: { $ne: true },
     },
   },
 );
@@ -198,17 +204,19 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       familyInvitationCode: { $type: "string" },
+      isDeleted: { $ne: true },
     },
   },
 );
 
-userSchema.index({ familyId: 1, role: 1 });
+userSchema.index({ familyId: 1, role: 1, isDeleted: 1 });
 userSchema.index(
   { familyId: 1, role: 1, isPrimary: 1 },
   {
     partialFilterExpression: {
       role: "caregiver",
       isPrimary: true,
+      isDeleted: { $ne: true },
     },
   },
 );

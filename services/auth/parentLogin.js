@@ -11,6 +11,7 @@ const {
 } = require("../appointment/dashboardAppointments");
 const { addFcmTokenToUser } = require("./fcmToken");
 const { CustomError } = require("../../utils/error");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -37,6 +38,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
   const parentUser = await User.findOne({
     familyInvitationCode: normalizedInvitationCode,
     role: "parent",
+    ...ACTIVE_USER_FILTER,
   });
 
   if (!parentUser) {

@@ -7,6 +7,7 @@ const {
 } = require("../../utils/fileStorage");
 const { ensureParentMemberOrThrow } = require("./memberAccess");
 const { getMemberDetailService } = require("./getMemberDetail");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
@@ -48,6 +49,7 @@ const updateMemberService = async (
       const existingEmail = await User.findOne({
         _id: { $ne: parentUser._id },
         email,
+        ...ACTIVE_USER_FILTER,
       }).select("_id");
 
       if (existingEmail) {
@@ -66,6 +68,7 @@ const updateMemberService = async (
       const existingPhone = await User.findOne({
         _id: { $ne: parentUser._id },
         phoneNumber,
+        ...ACTIVE_USER_FILTER,
       }).select("_id");
 
       if (existingPhone) {

@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { CustomError } = require("../../utils/error");
 const User = require("../../models/user");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -18,9 +19,10 @@ const verifyEmailOtpService = async (email, otp) => {
     .toLowerCase()
     .trim();
 
-  const user = await User.findOne({ email: normalizedEmail }).select(
-    "+emailVerificationOtpHash +emailVerificationOtpExpiresAt",
-  );
+  const user = await User.findOne({
+    email: normalizedEmail,
+    ...ACTIVE_USER_FILTER,
+  }).select("+emailVerificationOtpHash +emailVerificationOtpExpiresAt");
 
   if (!user) {
     throw new CustomError("User not found", [], 404);

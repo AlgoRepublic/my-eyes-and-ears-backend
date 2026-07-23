@@ -10,6 +10,7 @@ const {
   getCaregiverIdOrThrow,
 } = require("./memberAccess");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const parseTimeParts = (timeValue) => {
   if (!timeValue) return null;
@@ -145,6 +146,7 @@ const getMemberDetailService = async (currentUser, userId) => {
     _id: normalizedUserId,
     familyId,
     role: "parent",
+    ...ACTIVE_USER_FILTER,
   });
 
   if (!parentUser) {

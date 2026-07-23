@@ -30,12 +30,15 @@ const {
 } = require("../controllers/api/v1/users/memberMedications");
 const deleteMember = require("../controllers/api/v1/users/deleteMember");
 const deleteCaregiver = require("../controllers/api/v1/users/deleteCaregiver");
+const deleteProfile = require("../controllers/api/v1/users/deleteProfile");
 const updateMedicationStatus = require("../controllers/api/v1/users/updateMedicationStatus");
 const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppointmentStatus");
 
 router.use(protect);
 router.patch("/update", updateProfile);
 router.patch("/profile", updateProfile);
+router.delete("/profile", deleteProfile);
+router.delete("/deleteProfile", deleteProfile);
 router.post("/addMember", addMember);
 router.post("/addCaregiver", addCaregiver);
 router.get("/getFamilyDetail", getFamilyDetails);

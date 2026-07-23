@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
+const { ACTIVE_USER_FILTER } = require("../utils/userSoftDelete");
 
 const extractBearerToken = (authorizationHeader) => {
   if (!authorizationHeader || typeof authorizationHeader !== "string") {
@@ -40,7 +41,10 @@ exports.protect = async (req, res, next) => {
     }
 
     // 3) Check if user still exists
-    const currentUser = await User.findById(userId);
+    const currentUser = await User.findOne({
+      _id: userId,
+      ...ACTIVE_USER_FILTER,
+    });
     if (!currentUser) {
       return res.status(401).json({
         status: "fail",

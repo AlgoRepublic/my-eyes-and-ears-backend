@@ -1,6 +1,7 @@
 const Family = require("../../models/family");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const getCaregiverIdFromUser = (currentUser) => {
   const caregiverId = currentUser?._id || currentUser?.id;
@@ -19,7 +20,10 @@ const getCaregiverIdFromUser = (currentUser) => {
 const resolveCaregiverFamilyId = async (currentUser) => {
   const caregiverId = getCaregiverIdFromUser(currentUser);
 
-  const caregiver = await User.findById(caregiverId).select("familyId familyName");
+  const caregiver = await User.findOne({
+    _id: caregiverId,
+    ...ACTIVE_USER_FILTER,
+  }).select("familyId familyName");
 
   if (!caregiver) {
     throw new CustomError("Caregiver not found", [], 404);
@@ -39,7 +43,7 @@ const resolveCaregiverFamilyId = async (currentUser) => {
     { familyId: family._id, isPrimary: true },
   );
   await User.updateMany(
-    { caregiverId, role: "parent", familyId: null },
+    { caregiverId, role: "parent", familyId: null, ...ACTIVE_USER_FILTER },
     { familyId: family._id },
   );
 
@@ -59,6 +63,7 @@ const getPrimaryCaregiverByFamilyId = async (familyId) => {
     familyId,
     role: "caregiver",
     isPrimary: true,
+    ...ACTIVE_USER_FILTER,
   });
 
   if (primaryCaregiver) {
@@ -70,7 +75,10 @@ const getPrimaryCaregiverByFamilyId = async (familyId) => {
     return null;
   }
 
-  return User.findById(family.createdBy);
+  return User.findOne({
+    _id: family.createdBy,
+    ...ACTIVE_USER_FILTER,
+  });
 };
 
 module.exports = {

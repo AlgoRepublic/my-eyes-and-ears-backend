@@ -9,6 +9,7 @@ const {
   extractNotificationSettingUpdates,
   getOrCreateCaregiverProfileSetting,
 } = require("./caregiverNotificationSettings");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
@@ -17,7 +18,10 @@ const normalizeOptionalString = (value) => {
 };
 
 const updateProfileService = async (userId, payload, files = []) => {
-  const user = await User.findById(userId);
+  const user = await User.findOne({
+    _id: userId,
+    ...ACTIVE_USER_FILTER,
+  });
 
   if (!user) {
     throw new CustomError("User not found", [], 404);
@@ -53,6 +57,7 @@ const updateProfileService = async (userId, payload, files = []) => {
       const existingEmail = await User.findOne({
         _id: { $ne: user._id },
         email,
+        ...ACTIVE_USER_FILTER,
       }).select("_id");
 
       if (existingEmail) {
@@ -72,6 +77,7 @@ const updateProfileService = async (userId, payload, files = []) => {
       const existingPhone = await User.findOne({
         _id: { $ne: user._id },
         phoneNumber,
+        ...ACTIVE_USER_FILTER,
       }).select("_id");
 
       if (existingPhone) {
