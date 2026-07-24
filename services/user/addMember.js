@@ -1,4 +1,5 @@
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const ProfileSetting = require("../../models/profileSetting");
 const Medication = require("../../models/medication");
 const Contact = require("../../models/contact");
@@ -6,14 +7,17 @@ const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
-const {
-  getCaregiverIdOrThrow,
-} = require("./memberAccess");
+const { getCaregiverIdOrThrow } = require("./memberAccess");
 const {
   buildInvitationDetails,
   buildUniqueInvitationCode,
 } = require("./invitation");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || "";
+};
 
 const buildMemberResponse = ({
   parentUser,
@@ -36,7 +40,7 @@ const buildMemberResponse = ({
     image: parentUser.image,
     location: parentUser.location,
     invitation: buildInvitationDetails(parentUser),
-    familyName: parentUser.familyName,
+    familyName: buildFamilyName(parentUser.familyId),
     isProfileCompleted: parentUser.isProfileCompleted,
     missedCheckInAlerts: parentUser.missedCheckInAlerts,
     isEmailVerified: parentUser.isEmailVerified,
@@ -193,10 +197,9 @@ const addMemberService = async (currentUser, data = {}) => {
           familyId,
           familyInvitationCode: invitationCode,
           lastInvitationTime,
-          familyName: userPayload.familyName || "",
-          isProfileCompleted: false,
+          isProfileCompleted: true,
           missedCheckInAlerts,
-          isEmailVerified: false,
+          isEmailVerified: true,
           password: null,
         });
 

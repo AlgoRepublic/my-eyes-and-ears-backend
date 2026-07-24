@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const { CustomError } = require("../../utils/error");
 const { saveProfileImage } = require("../../utils/fileStorage");
 const { addFcmTokenToUser, normalizeFcmToken } = require("./fcmToken");
@@ -15,6 +16,11 @@ const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
     expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1m",
   });
+};
+
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || "";
 };
 
 const downloadImageToProfileFile = async (imageUrl, userId) => {
@@ -161,7 +167,7 @@ const socialLoginService = async (
     name: user.name,
     image: user.image,
     phoneNumber: user.phoneNumber,
-    familyName: user.familyName,
+    familyName: buildFamilyName(user.familyId),
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,

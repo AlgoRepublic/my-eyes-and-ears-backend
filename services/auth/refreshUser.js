@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const { CustomError } = require("../../utils/error");
 const {
   appendCaregiverNotificationSettings,
@@ -18,6 +19,11 @@ const signRefreshToken = (user) => {
   });
 };
 
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || "";
+};
+
 const buildUserResponse = async (user) => {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
@@ -28,7 +34,7 @@ const buildUserResponse = async (user) => {
     name: user.name,
     phoneNumber: user.phoneNumber,
     image: user.image,
-    familyName: user.familyName,
+    familyName: buildFamilyName(user.familyId),
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,

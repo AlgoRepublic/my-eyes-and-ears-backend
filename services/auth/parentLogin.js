@@ -3,6 +3,7 @@ const User = require("../../models/user");
 const ProfileSetting = require("../../models/profileSetting");
 const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
+const Family = require("../../models/family");
 const {
   getTodayMedicationResponse,
 } = require("../medication/medicationHistory");
@@ -17,6 +18,11 @@ const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
     expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1m",
   });
+};
+
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || "";
 };
 
 const parentLoginService = async (invitationCode, role, fcmToken) => {
@@ -79,6 +85,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       role: parentUser.role,
       name: parentUser.name,
       email: parentUser.email,
+      familyName: buildFamilyName(parentUser.familyId),
       phoneNumber: parentUser.phoneNumber,
       image: parentUser.image,
       relation: parentUser.relation,

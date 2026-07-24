@@ -5,13 +5,8 @@ const { getCaregiverIdOrThrow } = require("./memberAccess");
 const { buildMembersListResponse } = require("./buildMembersListResponse");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
-const buildFamilyName = (family, caregivers = []) => {
-  if (family?.name) {
-    return family.name;
-  }
-
-  const caregiverWithFamilyName = caregivers.find((item) => item.familyName);
-  return caregiverWithFamilyName?.familyName || "";
+const buildFamilyName = (family) => {
+  return family?.name || "";
 };
 
 const getFamilyDetailsService = async (currentUser) => {
@@ -36,16 +31,18 @@ const getFamilyDetailsService = async (currentUser) => {
   return {
     family: {
       id: familyId,
-      name: buildFamilyName(family, caregivers),
+      name: buildFamilyName(family),
       memberCount: members.length,
       caregiverCount: caregivers.length,
       members: membersResponse,
       caregivers: caregivers.map((caregiverUser) => ({
         id: caregiverUser._id,
+        familyName: buildFamilyName(family),
         name: caregiverUser.name,
         email: caregiverUser.email,
         phoneNumber: caregiverUser.phoneNumber,
         avatarColor: caregiverUser.avatarColor,
+        image: caregiverUser.image,
         isPrimary: caregiverUser.isPrimary,
         isCurrentUser: String(caregiverUser._id) === String(currentCaregiverId),
       })),

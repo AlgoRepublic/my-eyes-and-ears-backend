@@ -6,9 +6,7 @@ const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { buildMemberResponse } = require("./addMember");
-const {
-  getCaregiverIdOrThrow,
-} = require("./memberAccess");
+const { getCaregiverIdOrThrow } = require("./memberAccess");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
