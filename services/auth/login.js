@@ -4,11 +4,28 @@ const { CustomError } = require("../../utils/error");
 const { joiValidate, joiFormatErrors } = require("../../utils/joi");
 const { loginSchema } = require("../../utils/validation");
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const { addFcmTokenToUser } = require("./fcmToken");
 const {
   appendCaregiverNotificationSettings,
 } = require("../user/caregiverNotificationSettings");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || "";
+};
+
+const generateSixDigitOtp = () => {
+  const otpNumber = crypto.randomInt(100000, 1000000);
+  return String(otpNumber);
+};
+
+const hashOtp = (otp) => {
+  return crypto.createHash("sha256").update(otp).digest("hex");
+};
+
+const OTP_EXPIRY_MINUTES = 10;
 
 const loginService = async (email, password, fcmToken) => {
   const { error } = await joiValidate(loginSchema, {
@@ -30,14 +47,6 @@ const loginService = async (email, password, fcmToken) => {
     throw new CustomError("Invalid email or password");
   }
 
-  // if (!user.isEmailVerified) {
-  //   throw new CustomError(
-  //     "Please verify your email with OTP before logging in",
-  //     [],
-  //     403,
-  //   );
-  // }
-
   if (!user.password) {
     throw new CustomError(
       "Password is not set for this account. Please login with social provider",
@@ -54,7 +63,19 @@ const loginService = async (email, password, fcmToken) => {
   if (!isPasswordValid) {
     throw new CustomError("Invalid email or password");
   }
-
+  if (
+    !user.isEmailVerified &&
+    user.role === "caregiver" &&
+    user.isPrimary === true
+  ) {
+    // assign new email verification otp
+    const otp = generateSixDigitOtp();
+    const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+    const otpHash = hashOtp(otp);
+    user.emailVerificationOtpHash = otpHash;
+    user.emailVerificationOtpExpiresAt = otpExpiresAt;
+    await user.save();
+  }
   const hasUpdatedFcmToken = addFcmTokenToUser(user, fcmToken);
   if (hasUpdatedFcmToken) {
     await user.save();
@@ -80,7 +101,7 @@ const loginService = async (email, password, fcmToken) => {
     email: user.email,
     name: user.name,
     phoneNumber: user.phoneNumber,
-    familyName: user.familyName,
+    familyName: buildFamilyName(user.familyId),
     image: user.image,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,

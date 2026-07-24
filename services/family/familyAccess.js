@@ -11,7 +11,11 @@ const getCaregiverIdFromUser = (currentUser) => {
   }
 
   if (currentUser?.role && currentUser.role !== "caregiver") {
-    throw new CustomError("Only caregivers can access family resources", [], 403);
+    throw new CustomError(
+      "Only caregivers can access family resources",
+      [],
+      403,
+    );
   }
 
   return caregiverId;

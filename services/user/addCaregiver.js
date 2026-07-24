@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const { CustomError } = require("../../utils/error");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { getCaregiverIdOrThrow } = require("./memberAccess");
@@ -25,6 +26,11 @@ const generateTemporaryPassword = () => {
   return password;
 };
 
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || null;
+};
+
 const buildCaregiverResponse = (caregiverUser) => {
   return {
     id: caregiverUser._id,
@@ -37,7 +43,7 @@ const buildCaregiverResponse = (caregiverUser) => {
     relation: caregiverUser.relation,
     avatarColor: caregiverUser.avatarColor,
     image: caregiverUser.image,
-    familyName: caregiverUser.familyName,
+    familyName: buildFamilyName(caregiverUser.familyId),
     isProfileCompleted: caregiverUser.isProfileCompleted,
     isEmailVerified: caregiverUser.isEmailVerified,
     hasPassword: Boolean(caregiverUser.password),
@@ -109,8 +115,7 @@ const addCaregiverService = async (currentUser, data = {}) => {
       isPrimary: false,
       familyInvitationCode: null,
       lastInvitationTime: null,
-      familyName: userPayload.familyName || "",
-      isProfileCompleted: false,
+      isProfileCompleted: true,
       isEmailVerified: true,
       password,
       emailVerificationOtpHash: null,

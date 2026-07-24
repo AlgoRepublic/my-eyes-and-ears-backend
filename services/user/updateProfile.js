@@ -1,4 +1,5 @@
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const { CustomError } = require("../../utils/error");
 const {
   saveProfileImage,
@@ -34,9 +35,7 @@ const updateProfileService = async (userId, payload, files = []) => {
     : null;
   const previousImage = user.image;
   const notificationSettingUpdates =
-    user.role === "caregiver"
-      ? extractNotificationSettingUpdates(payload)
-      : {};
+    user.role === "caregiver" ? extractNotificationSettingUpdates(payload) : {};
 
   if (payload?.name !== undefined) {
     const name = String(payload.name || "").trim();
@@ -92,6 +91,14 @@ const updateProfileService = async (userId, payload, files = []) => {
 
   if (familyName !== undefined) {
     updates.familyName = normalizeOptionalString(familyName) || "";
+    // if user is caregiver and user is isPrimary is true, then set isProfileCompleted to true
+    if (user.role === "caregiver" && user.isPrimary) {
+      updates.isProfileCompleted = true;
+      await Family.updateOne(
+        { _id: user.familyId },
+        { $set: { name: familyName } },
+      );
+    }
   }
 
   if (currentPassword !== undefined || newPassword !== undefined) {
