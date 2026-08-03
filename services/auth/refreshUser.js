@@ -27,6 +27,7 @@ const buildFamilyName = async (familyId) => {
 const buildUserResponse = async (user) => {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
+  const familyName = await buildFamilyName(user.familyId);
 
   return appendCaregiverNotificationSettings(user, {
     id: user._id,
@@ -34,7 +35,7 @@ const buildUserResponse = async (user) => {
     name: user.name,
     phoneNumber: user.phoneNumber,
     image: user.image,
-    familyName: buildFamilyName(user.familyId),
+    familyName: familyName || "",
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,

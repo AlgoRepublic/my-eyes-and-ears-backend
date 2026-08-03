@@ -161,13 +161,14 @@ const socialLoginService = async (
     },
   );
 
+  const familyName = await buildFamilyName(user.familyId);
   const userResponse = await appendCaregiverNotificationSettings(user, {
     id: user._id,
     email: user.email,
     name: user.name,
     image: user.image,
     phoneNumber: user.phoneNumber,
-    familyName: buildFamilyName(user.familyId),
+    familyName: familyName || "",
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,

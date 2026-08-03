@@ -78,6 +78,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
     },
   );
+  const familyName = await buildFamilyName(parentUser.familyId);
 
   return {
     user: {
@@ -85,7 +86,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       role: parentUser.role,
       name: parentUser.name,
       email: parentUser.email,
-      familyName: buildFamilyName(parentUser.familyId),
+      familyName: familyName || "",
       phoneNumber: parentUser.phoneNumber,
       image: parentUser.image,
       relation: parentUser.relation,
