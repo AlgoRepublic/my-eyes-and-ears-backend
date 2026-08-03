@@ -1,9 +1,19 @@
+const Family = require("../../models/family");
 const ProfileSetting = require("../../models/profileSetting");
 const Medication = require("../../models/medication");
 const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
 const { buildMemberResponse } = require("./addMember");
+
+const buildFamilyName = async (familyId) => {
+  if (!familyId) {
+    return "";
+  }
+
+  const family = await Family.findById(familyId).select("name");
+  return family?.name || "";
+};
 
 const parseTimeParts = (timeValue) => {
   if (!timeValue) return null;
@@ -171,11 +181,13 @@ const buildMembersListResponse = async (
   const remindersByUserId = groupByUserId(checkinReminders);
   const appointmentsByUserId = groupByUserId(appointments);
   const now = new Date();
+  const familyName = await buildFamilyName(members[0]?.familyId);
 
   return members.map((member) => {
     const memberMedications = medicationsByUserId.get(String(member._id)) || [];
     const memberResponse = buildMemberResponse({
       parentUser: member,
+      familyName,
       profileSetting: profileSettingByUserId.get(String(member._id)) || null,
       medications: memberMedications,
       contacts: contactsByUserId.get(String(member._id)) || [],

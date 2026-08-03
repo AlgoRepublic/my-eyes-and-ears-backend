@@ -1,5 +1,6 @@
 const { CustomError } = require("../../utils/error");
 const User = require("../../models/user");
+const Family = require("../../models/family");
 const ProfileSetting = require("../../models/profileSetting");
 const Medication = require("../../models/medication");
 const Contact = require("../../models/contact");
@@ -9,6 +10,15 @@ const { buildMemberResponse } = require("./addMember");
 const { getCaregiverIdOrThrow } = require("./memberAccess");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+
+const buildFamilyName = async (familyId) => {
+  if (!familyId) {
+    return "";
+  }
+
+  const family = await Family.findById(familyId).select("name");
+  return family?.name || "";
+};
 
 const parseTimeParts = (timeValue) => {
   if (!timeValue) return null;
@@ -165,8 +175,10 @@ const getMemberDetailService = async (currentUser, userId) => {
     Appointment.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
   ]);
 
+  const familyName = await buildFamilyName(familyId);
   const memberResponse = buildMemberResponse({
     parentUser,
+    familyName,
     profileSetting,
     medications,
     contacts,

@@ -95,13 +95,13 @@ const loginService = async (email, password, fcmToken) => {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
     },
   );
-
+  const familyName = await buildFamilyName(user.familyId);
   const userData = await appendCaregiverNotificationSettings(user, {
     id: user._id,
     email: user.email,
     name: user.name,
     phoneNumber: user.phoneNumber,
-    familyName: buildFamilyName(user.familyId),
+    familyName: familyName || "",
     image: user.image,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,

@@ -21,6 +21,7 @@ const buildFamilyName = async (familyId) => {
 
 const buildMemberResponse = ({
   parentUser,
+  familyName = "",
   profileSetting,
   medications = [],
   contacts = [],
@@ -40,7 +41,7 @@ const buildMemberResponse = ({
     image: parentUser.image,
     location: parentUser.location,
     invitation: buildInvitationDetails(parentUser),
-    familyName: buildFamilyName(parentUser.familyId),
+    familyName: familyName || "",
     isProfileCompleted: parentUser.isProfileCompleted,
     missedCheckInAlerts: parentUser.missedCheckInAlerts,
     isEmailVerified: parentUser.isEmailVerified,
@@ -331,10 +332,13 @@ const addMemberService = async (currentUser, data = {}) => {
     throw error;
   }
 
+  const familyName = await buildFamilyName(familyId);
+
   return {
     user: {
       ...buildMemberResponse({
         parentUser,
+        familyName,
         profileSetting,
         medications: createdMedications,
         contacts: createdContacts,
