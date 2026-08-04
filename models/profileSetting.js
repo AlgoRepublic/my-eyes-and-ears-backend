@@ -22,6 +22,62 @@ const profileSettingSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    hapticFeedback: {
+      type: Boolean,
+      default: false,
+    },
+    voiceSpeed: {
+      type: Number,
+      default: 1,
+    },
+    appLanguage: {
+      type: String,
+      default: null,
+    },
+    readingVoice: {
+      type: String,
+      default: null,
+    },
+    translationLanguage: {
+      type: String,
+      default: null,
+    },
+    autoReadAfterScan: {
+      type: Boolean,
+      default: false,
+    },
+    dailyCheckInReminders: {
+      type: Boolean,
+      default: true,
+    },
+    medicationReminders: {
+      type: Boolean,
+      default: true,
+    },
+    appointmentsReminders: {
+      type: Boolean,
+      default: true,
+    },
+    familyMessages: {
+      type: Boolean,
+      default: true,
+    },
+    doNotDisturb: {
+      type: Boolean,
+      default: false,
+    },
+    shareCheckInStatus: {
+      type: Boolean,
+      default: true,
+    },
+    shareMedication: {
+      type: Boolean,
+      default: true,
+    },
+    shareLocation: {
+      type: Boolean,
+      default: true,
+    },
     sosAlerts: {
       type: Boolean,
       default: true,
