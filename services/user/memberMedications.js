@@ -1,6 +1,7 @@
 const Medication = require("../../models/medication");
 const MedicationHistory = require("../../models/medicationHistory");
 const { CustomError } = require("../../utils/error");
+const { buildMedicationSchedule } = require("./medicationSchedule");
 const {
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
@@ -12,6 +13,8 @@ const mapMedication = (item) => ({
   name: item.name,
   dosage: item.dosage,
   frequency: item.frequency,
+  days: item.days || [],
+  dates: item.dates || [],
   startDate: item.startDate,
   endDate: item.endDate,
   notes: item.notes,
@@ -38,6 +41,11 @@ const createMemberMedicationService = async (
 ) => {
   const parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
   const name = String(payload.name || "").trim();
+  const schedule = buildMedicationSchedule({
+    frequency: payload.frequency,
+    days: payload.days,
+    dates: payload.dates,
+  });
 
   if (!name) {
     throw new CustomError("name is required", [], 400);
@@ -47,7 +55,9 @@ const createMemberMedicationService = async (
     userId: parentUser._id,
     name,
     dosage: payload.dosage ? String(payload.dosage).trim() : null,
-    frequency: payload.frequency ? String(payload.frequency).trim() : null,
+    frequency: schedule.frequency,
+    days: schedule.days,
+    dates: schedule.dates,
     startDate: toDateOrNull(payload.startDate, "startDate"),
     endDate: toDateOrNull(payload.endDate, "endDate"),
     notes: payload.notes ? String(payload.notes).trim() : null,
@@ -81,6 +91,26 @@ const updateMemberMedicationService = async (
     throw new CustomError("Medication not found", [], 404);
   }
 
+  const shouldRecalculateSchedule =
+    payload.frequency !== undefined ||
+    payload.days !== undefined ||
+    payload.dates !== undefined;
+
+  if (shouldRecalculateSchedule) {
+    const schedule = buildMedicationSchedule({
+      frequency:
+        payload.frequency !== undefined
+          ? payload.frequency
+          : medication.frequency,
+      days: payload.days !== undefined ? payload.days : medication.days,
+      dates: payload.dates !== undefined ? payload.dates : medication.dates,
+    });
+
+    medication.frequency = schedule.frequency;
+    medication.days = schedule.days;
+    medication.dates = schedule.dates;
+  }
+
   if (payload.name !== undefined) {
     const name = String(payload.name || "").trim();
     if (!name) {
@@ -91,12 +121,6 @@ const updateMemberMedicationService = async (
 
   if (payload.dosage !== undefined) {
     medication.dosage = payload.dosage ? String(payload.dosage).trim() : null;
-  }
-
-  if (payload.frequency !== undefined) {
-    medication.frequency = payload.frequency
-      ? String(payload.frequency).trim()
-      : null;
   }
 
   if (payload.startDate !== undefined) {

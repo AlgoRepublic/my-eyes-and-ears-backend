@@ -12,6 +12,7 @@ const {
   buildInvitationDetails,
   buildUniqueInvitationCode,
 } = require("./invitation");
+const { buildMedicationSchedule } = require("./medicationSchedule");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const buildFamilyName = async (familyId) => {
@@ -53,6 +54,8 @@ const buildMemberResponse = ({
       name: item.name,
       dosage: item.dosage,
       frequency: item.frequency,
+      days: item.days || [],
+      dates: item.dates || [],
       startDate: item.startDate,
       endDate: item.endDate,
       notes: item.notes,
@@ -226,16 +229,26 @@ const addMemberService = async (currentUser, data = {}) => {
     if (medicationsPayload.length > 0) {
       const medicationDocs = medicationsPayload
         .filter((item) => item && item.name)
-        .map((item) => ({
-          userId: parentUser._id,
-          name: String(item.name).trim(),
-          dosage: item.dosage ? String(item.dosage).trim() : null,
-          frequency: item.frequency ? String(item.frequency).trim() : null,
-          startDate: item.startDate ? new Date(item.startDate) : null,
-          endDate: item.endDate ? new Date(item.endDate) : null,
-          notes: item.notes ? String(item.notes).trim() : null,
-          time: item.time ? String(item.time).trim() : null,
-        }));
+        .map((item) => {
+          const schedule = buildMedicationSchedule({
+            frequency: item.frequency,
+            days: item.days,
+            dates: item.dates,
+          });
+
+          return {
+            userId: parentUser._id,
+            name: String(item.name).trim(),
+            dosage: item.dosage ? String(item.dosage).trim() : null,
+            frequency: schedule.frequency,
+            days: schedule.days,
+            dates: schedule.dates,
+            startDate: item.startDate ? new Date(item.startDate) : null,
+            endDate: item.endDate ? new Date(item.endDate) : null,
+            notes: item.notes ? String(item.notes).trim() : null,
+            time: item.time ? String(item.time).trim() : null,
+          };
+        });
 
       if (medicationDocs.length > 0) {
         createdMedications = await Medication.insertMany(medicationDocs);

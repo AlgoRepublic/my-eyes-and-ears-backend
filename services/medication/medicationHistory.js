@@ -78,6 +78,8 @@ const mapMedicationResponse = (medication, status) => {
     name: medication.name,
     dosage: medication.dosage,
     frequency: medication.frequency,
+    days: medication.days || [],
+    dates: medication.dates || [],
     startDate: medication.startDate,
     endDate: medication.endDate,
     notes: medication.notes,
