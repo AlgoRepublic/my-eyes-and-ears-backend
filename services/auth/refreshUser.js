@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../../models/user");
 const Family = require("../../models/family");
+const ProfileSetting = require("../../models/profileSetting");
 const { CustomError } = require("../../utils/error");
 const {
   appendCaregiverNotificationSettings,
@@ -24,26 +25,83 @@ const buildFamilyName = async (familyId) => {
   return family?.name || "";
 };
 
+const buildParentProfileSettingResponse = (profileSetting) => {
+  if (!profileSetting) {
+    return {
+      accessibilities: null,
+      notificationConfig: null,
+      privacyandDignity: null,
+    };
+  }
+
+  return {
+    accessibilities: {
+      id: profileSetting._id,
+      userId: profileSetting.userId,
+      fontSize: profileSetting.fontSize,
+      highContrast: profileSetting.highContrast ?? false,
+      voiceAssistance: profileSetting.voiceAssistance ?? false,
+      hapticFeedback: profileSetting.hapticFeedback ?? false,
+      voiceSpeed: profileSetting.voiceSpeed ?? 1,
+      appLanguage: profileSetting.appLanguage ?? null,
+      readingVoice: profileSetting.readingVoice ?? null,
+      translationLanguage: profileSetting.translationLanguage ?? null,
+      autoReadAfterScan: profileSetting.autoReadAfterScan ?? false,
+      createdAt: profileSetting.createdAt,
+      updatedAt: profileSetting.updatedAt,
+    },
+    notificationConfig: {
+      dailyCheckInReminders: profileSetting.dailyCheckInReminders ?? true,
+      medicationReminders: profileSetting.medicationReminders ?? true,
+      appointmentsReminders: profileSetting.appointmentsReminders ?? true,
+      familyMessages: profileSetting.familyMessages ?? true,
+      doNotDisturb: profileSetting.doNotDisturb ?? false,
+    },
+    privacyandDignity: {
+      shareCheckInStatus: profileSetting.shareCheckInStatus ?? true,
+      shareMedication: profileSetting.shareMedication ?? true,
+      shareLocation: profileSetting.shareLocation ?? true,
+    },
+  };
+};
+
 const buildUserResponse = async (user) => {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
   const familyName = await buildFamilyName(user.familyId);
 
-  return appendCaregiverNotificationSettings(user, {
+  const baseUser = {
     id: user._id,
-    email: user.email,
+    role: user.role,
     name: user.name,
+    email: user.email,
+    familyName: familyName || "",
     phoneNumber: user.phoneNumber,
     image: user.image,
-    familyName: familyName || "",
+    relation: user.relation,
+    caregiverId: user.caregiverId,
+    familyInvitationCode: user.familyInvitationCode,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
-    isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
     hasPassword: Boolean(user.password),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     accessToken,
     refreshToken,
+  };
+
+  if (user.role === "parent") {
+    const profileSetting = await ProfileSetting.findOne({ userId: user._id });
+
+    return {
+      ...baseUser,
+      ...buildParentProfileSettingResponse(profileSetting),
+    };
+  }
+
+  return appendCaregiverNotificationSettings(user, {
+    ...baseUser,
+    isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
   });
 };
 
