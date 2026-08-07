@@ -279,8 +279,9 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
           null,
         sosStatus: null,
       },
-      // medicationDuesCount: medications.filter((med) => med.status === "due")
-      //   .length,
+      medicationDuesCount: medications.filter(
+        (medication) => medication?.status !== "taken",
+      ).length,
       // medications,
       // contacts: contacts.map((item) => ({
       //   id: item._id,
