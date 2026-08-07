@@ -4,7 +4,12 @@ const {
 } = require("../../../../services/medication/medicationHistory");
 
 module.exports = asyncMiddleware(async (req, res, next) => {
-  const { medicationId, status, remindAt } = { ...req.body, ...req.query };
+  const medicationId =
+    req.params.medicationId ||
+    req.body?.medicationId ||
+    req.query?.medicationId;
+  const status = req.body?.status || req.query?.status;
+  const remindAt = req.body?.remindAt || req.query?.remindAt;
 
   const data = await updateMedicationStatusService({
     userId: req.user.id,

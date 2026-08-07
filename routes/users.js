@@ -24,6 +24,8 @@ const {
   deleteMemberAppointment,
 } = require("../controllers/api/v1/users/memberAppointments");
 const {
+  getParentTodayMedications,
+  getMemberMedications,
   createMemberMedication,
   updateMemberMedication,
   deleteMemberMedication,
@@ -73,6 +75,8 @@ router.delete(
 // ==================appointments end==================
 
 // ==================medications start==================
+router.get("/medications/today", getParentTodayMedications);
+router.get("/members/:userId/medications", getMemberMedications);
 router.post("/members/:userId/medications", createMemberMedication);
 router.patch(
   "/members/:userId/medications/:medicationId",
@@ -86,6 +90,8 @@ router.delete(
 router.delete("/members/:userId", deleteMember);
 router.delete("/caregivers/:userId", deleteCaregiver);
 router.delete("/caregiver/:userId", deleteCaregiver);
+router.patch("/medications/:medicationId/status", updateMedicationStatus);
+router.patch("/medication/:medicationId/status", updateMedicationStatus);
 router.patch("/medications/status", updateMedicationStatus);
 router.patch("/medication/status", updateMedicationStatus);
 router.patch("/appointments/status", updateAppointmentStatus);

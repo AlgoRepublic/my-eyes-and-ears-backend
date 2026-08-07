@@ -1,9 +1,33 @@
 const { asyncMiddleware } = require("../../../../middlewares/async");
 const {
+  getMemberMedicationsService,
+  getParentTodayMedicationsService,
   createMemberMedicationService,
   updateMemberMedicationService,
   deleteMemberMedicationService,
 } = require("../../../../services/user/memberMedications");
+
+const getMemberMedications = asyncMiddleware(async (req, res, next) => {
+  const data = await getMemberMedicationsService(req.user, req.params.userId);
+
+  next({
+    success: true,
+    message: "Medications fetched successfully",
+    statusCode: 200,
+    data,
+  });
+});
+
+const getParentTodayMedications = asyncMiddleware(async (req, res, next) => {
+  const data = await getParentTodayMedicationsService(req.user);
+
+  next({
+    success: true,
+    message: "Today's medications fetched successfully",
+    statusCode: 200,
+    data,
+  });
+});
 
 const createMemberMedication = asyncMiddleware(async (req, res, next) => {
   const data = await createMemberMedicationService(
@@ -52,6 +76,8 @@ const deleteMemberMedication = asyncMiddleware(async (req, res, next) => {
 });
 
 module.exports = {
+  getParentTodayMedications,
+  getMemberMedications,
   createMemberMedication,
   updateMemberMedication,
   deleteMemberMedication,

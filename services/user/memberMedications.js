@@ -1,6 +1,9 @@
 const Medication = require("../../models/medication");
 const MedicationHistory = require("../../models/medicationHistory");
 const { CustomError } = require("../../utils/error");
+const {
+  getTodayMedicationResponse,
+} = require("../medication/medicationHistory");
 const { buildMedicationSchedule } = require("./medicationSchedule");
 const {
   ensureObjectIdOrThrow,
@@ -177,7 +180,40 @@ const deleteMemberMedicationService = async (
   };
 };
 
+const getMemberMedicationsService = async (currentUser, memberId) => {
+  const parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
+  const medications = await getTodayMedicationResponse(parentUser._id);
+
+  return {
+    medications,
+  };
+};
+
+const getParentTodayMedicationsService = async (currentUser) => {
+  const parentId = currentUser?._id || currentUser?.id;
+
+  if (!parentId) {
+    throw new CustomError("Authenticated user is required", [], 401);
+  }
+
+  if (currentUser?.role && currentUser.role !== "parent") {
+    throw new CustomError(
+      "Only parent users can access this endpoint",
+      [],
+      403,
+    );
+  }
+
+  const medications = await getTodayMedicationResponse(parentId);
+
+  return {
+    medications,
+  };
+};
+
 module.exports = {
+  getMemberMedicationsService,
+  getParentTodayMedicationsService,
   createMemberMedicationService,
   updateMemberMedicationService,
   deleteMemberMedicationService,
