@@ -15,6 +15,62 @@ const getEndOfDayExclusive = (inputDate = new Date()) => {
   return new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
 };
 
+const getWeekDayName = (inputDate = new Date()) => {
+  return inputDate
+    .toLocaleDateString("en-US", { weekday: "long" })
+    .toLowerCase();
+};
+
+const isSameDay = (leftDate, rightDate) => {
+  if (!leftDate || !rightDate) return false;
+
+  return (
+    leftDate.getFullYear() === rightDate.getFullYear() &&
+    leftDate.getMonth() === rightDate.getMonth() &&
+    leftDate.getDate() === rightDate.getDate()
+  );
+};
+
+const isWithinDateWindow = (medication, now = new Date()) => {
+  if (medication.startDate && medication.startDate > now) {
+    return false;
+  }
+
+  if (!medication.endDate) {
+    return true;
+  }
+
+  return getStartOfDay(medication.endDate) >= getStartOfDay(now);
+};
+
+const isMedicationApplicableForToday = (medication, now = new Date()) => {
+  if (!isWithinDateWindow(medication, now)) {
+    return false;
+  }
+
+  if (medication.frequency === "weekly") {
+    const selectedDays = Array.isArray(medication.days) ? medication.days : [];
+    return selectedDays.includes(getWeekDayName(now));
+  }
+
+  if (medication.frequency === "custom_dates") {
+    const selectedDates = Array.isArray(medication.dates)
+      ? medication.dates
+      : [];
+
+    return selectedDates.some((dateValue) => {
+      const parsedDate = new Date(dateValue);
+      if (Number.isNaN(parsedDate.getTime())) {
+        return false;
+      }
+
+      return isSameDay(parsedDate, now);
+    });
+  }
+
+  return medication.frequency === "daily";
+};
+
 const parseMedicationTime = (timeValue, referenceDate = new Date()) => {
   if (!timeValue) return null;
 
@@ -58,14 +114,14 @@ const deriveTemporalStatus = (medicationTime, now = new Date()) => {
   const reminderAt = parseMedicationTime(medicationTime, now);
 
   if (!reminderAt) {
-    return "upcoming";
+    return "due";
   }
 
-  return now >= reminderAt ? "due" : "upcoming";
+  return now > reminderAt ? "overdue" : "due";
 };
 
 const getActionsByStatus = (status) => {
-  if (status === "due") {
+  if (status === "due" || status === "overdue" || status === "remind_later") {
     return DUE_ACTIONS;
   }
 
@@ -96,6 +152,7 @@ const getTodayMedicationResponse = async (userId) => {
 
   const dayStart = getStartOfDay();
   const dayEndExclusive = getEndOfDayExclusive();
+  const now = new Date();
 
   const [medications, todayHistories] = await Promise.all([
     Medication.find({ userId, isActive: true }).sort({ createdAt: 1 }),
@@ -103,26 +160,43 @@ const getTodayMedicationResponse = async (userId) => {
       userId,
       date: { $gte: dayStart, $lt: dayEndExclusive },
     })
-      .select("medicationId status")
+      .select("medicationId status remindAt")
       .lean(),
   ]);
 
-  const historyStatusByMedicationId = todayHistories.reduce(
+  const historyByMedicationId = todayHistories.reduce(
     (accumulator, historyItem) => {
       const medicationId = String(historyItem.medicationId);
       if (!accumulator.has(medicationId)) {
-        accumulator.set(medicationId, historyItem.status);
+        accumulator.set(medicationId, {
+          status: historyItem.status,
+          remindAt: historyItem.remindAt,
+        });
       }
       return accumulator;
     },
     new Map(),
   );
 
-  return medications.map((medication) => {
-    const historyStatus = historyStatusByMedicationId.get(
-      String(medication._id),
-    );
-    const finalStatus = historyStatus || deriveTemporalStatus(medication.time);
+  const todayMedications = medications.filter((medication) =>
+    isMedicationApplicableForToday(medication, now),
+  );
+
+  return todayMedications.map((medication) => {
+    const history = historyByMedicationId.get(String(medication._id));
+
+    let finalStatus = deriveTemporalStatus(medication.time, now);
+
+    if (history?.status === "taken" || history?.status === "skipped") {
+      finalStatus = history.status;
+    } else if (history?.status === "remind_later") {
+      const remindAt = history.remindAt ? new Date(history.remindAt) : null;
+      if (remindAt && !Number.isNaN(remindAt.getTime()) && now > remindAt) {
+        finalStatus = "overdue";
+      } else {
+        finalStatus = "remind_later";
+      }
+    }
 
     return mapMedicationResponse(medication, finalStatus);
   });

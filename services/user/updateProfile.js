@@ -11,6 +11,7 @@ const {
   extractNotificationSettingUpdates,
   getOrCreateCaregiverProfileSetting,
 } = require("./caregiverNotificationSettings");
+const { buildParentRecentData } = require("./buildParentRecentData");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const normalizeOptionalString = (value) => {
@@ -346,12 +347,17 @@ const updateProfileService = async (userId, payload, files = []) => {
   );
 
   if (user.role === "parent") {
-    const parentProfileSetting =
-      profileSetting || (await ProfileSetting.findOne({ userId: user._id }));
+    const [parentProfileSetting, parentRecentData] = await Promise.all([
+      profileSetting
+        ? Promise.resolve(profileSetting)
+        : ProfileSetting.findOne({ userId: user._id }),
+      buildParentRecentData(user._id),
+    ]);
 
     userResponse = {
       ...userResponse,
       ...buildParentProfileSettingResponse(parentProfileSetting),
+      ...parentRecentData,
     };
   }
 

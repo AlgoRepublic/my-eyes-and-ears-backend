@@ -6,6 +6,7 @@ const { CustomError } = require("../../utils/error");
 const {
   appendCaregiverNotificationSettings,
 } = require("../user/caregiverNotificationSettings");
+const { buildParentRecentData } = require("../user/buildParentRecentData");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const signAccessToken = (user) => {
@@ -91,11 +92,15 @@ const buildUserResponse = async (user) => {
   };
 
   if (user.role === "parent") {
-    const profileSetting = await ProfileSetting.findOne({ userId: user._id });
+    const [profileSetting, parentRecentData] = await Promise.all([
+      ProfileSetting.findOne({ userId: user._id }),
+      buildParentRecentData(user._id),
+    ]);
 
     return {
       ...baseUser,
       ...buildParentProfileSettingResponse(profileSetting),
+      ...parentRecentData,
     };
   }
 
