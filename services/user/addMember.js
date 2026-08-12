@@ -203,7 +203,7 @@ const addMemberService = async (currentUser, data = {}) => {
           lastInvitationTime,
           isProfileCompleted: true,
           missedCheckInAlerts,
-          isEmailVerified: true,
+          isEmailVerified: false,
           password: null,
         });
 
