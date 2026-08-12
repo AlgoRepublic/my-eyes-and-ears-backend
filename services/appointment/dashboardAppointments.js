@@ -1,5 +1,6 @@
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
+const { getUtcDateTimeFromDateAndTime } = require("../../utils/utcDateTime");
 
 const COMPLETED_STATUS = "completed";
 const CANCELLED_STATUS = "cancelled";
@@ -7,67 +8,8 @@ const SCHEDULED_STATUS = "scheduled";
 const UPCOMING_STATUS = "upcoming";
 const MISSED_STATUS = "missed";
 
-const parseTimeParts = (timeValue) => {
-  if (!timeValue) return null;
-
-  const raw = String(timeValue).trim();
-  if (!raw) return null;
-
-  const match = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-  if (!match) return null;
-
-  let hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  const meridiem = match[3] ? match[3].toUpperCase() : null;
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes) || minutes > 59) {
-    return null;
-  }
-
-  if (meridiem) {
-    if (hours < 1 || hours > 12) return null;
-    if (meridiem === "AM") {
-      hours = hours === 12 ? 0 : hours;
-    } else {
-      hours = hours === 12 ? 12 : hours + 12;
-    }
-  } else if (hours > 23) {
-    return null;
-  }
-
-  return { hours, minutes };
-};
-
 const getAppointmentDateTime = (appointment) => {
-  if (!appointment?.date) return null;
-
-  const baseDate = new Date(appointment.date);
-  if (Number.isNaN(baseDate.getTime())) {
-    return null;
-  }
-
-  const timeParts = parseTimeParts(appointment.time);
-  if (!timeParts) {
-    return new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      baseDate.getDate(),
-      0,
-      0,
-      0,
-      0,
-    );
-  }
-
-  return new Date(
-    baseDate.getFullYear(),
-    baseDate.getMonth(),
-    baseDate.getDate(),
-    timeParts.hours,
-    timeParts.minutes,
-    0,
-    0,
-  );
+  return getUtcDateTimeFromDateAndTime(appointment?.date, appointment?.time);
 };
 
 const getComputedAppointmentStatus = (appointment, now = new Date()) => {

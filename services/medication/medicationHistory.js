@@ -1,35 +1,16 @@
 const Medication = require("../../models/medication");
 const MedicationHistory = require("../../models/medicationHistory");
 const { CustomError } = require("../../utils/error");
+const {
+  getUtcDateTimeFromStoredTime,
+  getUtcStartOfDay,
+  getUtcEndOfDayExclusive,
+  getUtcWeekDayName,
+  isSameUtcDay,
+} = require("../../utils/utcDateTime");
 
 const DUE_ACTIONS = ["taken", "skipped", "remind_later"];
 const ALLOWED_STATUSES = new Set(["taken", "skipped", "remind_later"]);
-
-const getStartOfDay = (inputDate = new Date()) => {
-  const date = new Date(inputDate);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-};
-
-const getEndOfDayExclusive = (inputDate = new Date()) => {
-  const start = getStartOfDay(inputDate);
-  return new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
-};
-
-const getWeekDayName = (inputDate = new Date()) => {
-  return inputDate
-    .toLocaleDateString("en-US", { weekday: "long" })
-    .toLowerCase();
-};
-
-const isSameDay = (leftDate, rightDate) => {
-  if (!leftDate || !rightDate) return false;
-
-  return (
-    leftDate.getFullYear() === rightDate.getFullYear() &&
-    leftDate.getMonth() === rightDate.getMonth() &&
-    leftDate.getDate() === rightDate.getDate()
-  );
-};
 
 const isWithinDateWindow = (medication, now = new Date()) => {
   if (medication.startDate && medication.startDate > now) {
@@ -40,7 +21,7 @@ const isWithinDateWindow = (medication, now = new Date()) => {
     return true;
   }
 
-  return getStartOfDay(medication.endDate) >= getStartOfDay(now);
+  return getUtcStartOfDay(medication.endDate) >= getUtcStartOfDay(now);
 };
 
 const isMedicationApplicableForToday = (medication, now = new Date()) => {
@@ -50,10 +31,13 @@ const isMedicationApplicableForToday = (medication, now = new Date()) => {
 
   if (medication.frequency === "weekly") {
     const selectedDays = Array.isArray(medication.days) ? medication.days : [];
-    return selectedDays.includes(getWeekDayName(now));
+    return selectedDays.includes(getUtcWeekDayName(now));
   }
 
-  if (medication.frequency === "once" || medication.frequency === "custom_dates") {
+  if (
+    medication.frequency === "once" ||
+    medication.frequency === "custom_dates"
+  ) {
     const selectedDates = Array.isArray(medication.dates)
       ? medication.dates
       : [];
@@ -64,54 +48,15 @@ const isMedicationApplicableForToday = (medication, now = new Date()) => {
         return false;
       }
 
-      return isSameDay(parsedDate, now);
+      return isSameUtcDay(parsedDate, now);
     });
   }
 
   return medication.frequency === "daily";
 };
 
-const parseMedicationTime = (timeValue, referenceDate = new Date()) => {
-  if (!timeValue) return null;
-
-  const raw = String(timeValue).trim();
-  if (!raw) return null;
-
-  const match = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-  if (!match) return null;
-
-  let hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  const meridiem = match[3] ? match[3].toUpperCase() : null;
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes) || minutes > 59) {
-    return null;
-  }
-
-  if (meridiem) {
-    if (hours < 1 || hours > 12) return null;
-    if (meridiem === "AM") {
-      hours = hours === 12 ? 0 : hours;
-    } else {
-      hours = hours === 12 ? 12 : hours + 12;
-    }
-  } else if (hours > 23) {
-    return null;
-  }
-
-  return new Date(
-    referenceDate.getFullYear(),
-    referenceDate.getMonth(),
-    referenceDate.getDate(),
-    hours,
-    minutes,
-    0,
-    0,
-  );
-};
-
 const deriveTemporalStatus = (medicationTime, now = new Date()) => {
-  const reminderAt = parseMedicationTime(medicationTime, now);
+  const reminderAt = getUtcDateTimeFromStoredTime(medicationTime, now);
 
   if (!reminderAt) {
     return "due";
@@ -150,8 +95,8 @@ const getTodayMedicationResponse = async (userId) => {
     throw new CustomError("userId is required", [], 400);
   }
 
-  const dayStart = getStartOfDay();
-  const dayEndExclusive = getEndOfDayExclusive();
+  const dayStart = getUtcStartOfDay();
+  const dayEndExclusive = getUtcEndOfDayExclusive();
   const now = new Date();
 
   const [medications, todayHistories] = await Promise.all([
@@ -244,7 +189,7 @@ const updateMedicationStatusService = async ({
   }
 
   const now = new Date();
-  const dayStart = getStartOfDay(now);
+  const dayStart = getUtcStartOfDay(now);
 
   const update = {
     status: normalizedStatus,
