@@ -164,6 +164,19 @@ const getOrCreateProfileSetting = async (userId) => {
   return profileSetting;
 };
 
+const buildResolvedFamilyName = async (user, updatedFamilyName) => {
+  if (updatedFamilyName !== undefined) {
+    return normalizeOptionalString(updatedFamilyName) || "";
+  }
+
+  if (!user?.familyId) {
+    return user?.familyName || "";
+  }
+
+  const family = await Family.findById(user.familyId).select("name");
+  return family?.name || user?.familyName || "";
+};
+
 const updateProfileService = async (userId, payload, files = []) => {
   const user = await User.findOne({
     _id: userId,
@@ -326,12 +339,14 @@ const updateProfileService = async (userId, payload, files = []) => {
     await deleteStoredFile(previousImage);
   }
 
+  const resolvedFamilyName = await buildResolvedFamilyName(user, familyName);
+
   const baseUserResponse = {
     id: user._id,
     email: user.email,
     name: user.name,
     phoneNumber: user.phoneNumber,
-    familyName: user.familyName,
+    familyName: resolvedFamilyName,
     image: user.image,
     avatarColor: user.avatarColor,
     isEmailVerified: user.isEmailVerified,
