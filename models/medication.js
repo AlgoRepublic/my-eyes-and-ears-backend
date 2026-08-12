@@ -10,7 +10,8 @@ const WEEK_DAYS = [
   "sunday",
 ];
 
-const MEDICATION_FREQUENCIES = ["daily", "weekly", "custom_dates"];
+const MEDICATION_FREQUENCIES = ["once", "daily", "weekly", "custom_dates"];
+const DATE_BASED_FREQUENCIES = ["once", "custom_dates"];
 
 const medicationSchema = new mongoose.Schema(
   {
@@ -36,7 +37,7 @@ const medicationSchema = new mongoose.Schema(
       trim: true,
       enum: {
         values: [...MEDICATION_FREQUENCIES, null],
-        message: "frequency must be one of daily, weekly, custom_dates",
+        message: "frequency must be one of once, daily, weekly, custom_dates",
       },
     },
     days: {
@@ -83,10 +84,20 @@ medicationSchema.pre("validate", function validateSchedule() {
     this.invalidate("days", "days are required when frequency is weekly");
   }
 
-  if (this.frequency === "custom_dates" && this.dates.length === 0) {
+  if (
+    DATE_BASED_FREQUENCIES.includes(this.frequency) &&
+    this.dates.length === 0
+  ) {
     this.invalidate(
       "dates",
-      "dates are required when frequency is custom_dates",
+      `dates are required when frequency is ${this.frequency}`,
+    );
+  }
+
+  if (this.frequency === "once" && this.dates.length > 1) {
+    this.invalidate(
+      "dates",
+      "dates must contain exactly one date when frequency is once",
     );
   }
 
@@ -94,7 +105,7 @@ medicationSchema.pre("validate", function validateSchedule() {
     this.days = [];
   }
 
-  if (this.frequency !== "custom_dates") {
+  if (!DATE_BASED_FREQUENCIES.includes(this.frequency)) {
     this.dates = [];
   }
 });

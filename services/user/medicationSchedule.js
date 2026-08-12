@@ -1,6 +1,7 @@
 const { CustomError } = require("../../utils/error");
 
-const MEDICATION_FREQUENCIES = ["daily", "weekly", "custom_dates"];
+const MEDICATION_FREQUENCIES = ["once", "daily", "weekly", "custom_dates"];
+const DATE_BASED_FREQUENCIES = ["once", "custom_dates"];
 const WEEK_DAYS = [
   "monday",
   "tuesday",
@@ -18,7 +19,7 @@ const normalizeFrequency = (frequency) => {
 
   if (!MEDICATION_FREQUENCIES.includes(normalized)) {
     throw new CustomError(
-      "frequency must be one of daily, weekly, custom_dates",
+      "frequency must be one of once, daily, weekly, custom_dates",
       [],
       400,
     );
@@ -60,15 +61,19 @@ const normalizeDays = (days) => {
   return normalized;
 };
 
-const normalizeDates = (dates) => {
-  if (!Array.isArray(dates)) {
-    throw new CustomError("dates must be an array", [], 400);
+const normalizeDateArray = (values, { fieldName, frequency }) => {
+  if (!Array.isArray(values)) {
+    throw new CustomError(`${fieldName} must be an array`, [], 400);
   }
 
-  const parsed = dates.map((item) => {
+  const parsed = values.map((item) => {
     const date = new Date(item);
     if (Number.isNaN(date.getTime())) {
-      throw new CustomError("All dates must be valid date values", [], 400);
+      throw new CustomError(
+        `All ${fieldName} values must be valid date values`,
+        [],
+        400,
+      );
     }
 
     return date;
@@ -76,7 +81,15 @@ const normalizeDates = (dates) => {
 
   if (parsed.length === 0) {
     throw new CustomError(
-      "dates is required when frequency is custom_dates",
+      `${fieldName} is required when frequency is ${frequency}`,
+      [],
+      400,
+    );
+  }
+
+  if (frequency === "once" && parsed.length !== 1) {
+    throw new CustomError(
+      "dates must contain exactly one date when frequency is once",
       [],
       400,
     );
@@ -96,11 +109,14 @@ const buildMedicationSchedule = ({ frequency, days, dates }) => {
     };
   }
 
-  if (normalizedFrequency === "custom_dates") {
+  if (DATE_BASED_FREQUENCIES.includes(normalizedFrequency)) {
     return {
       frequency: normalizedFrequency,
       days: [],
-      dates: normalizeDates(dates),
+      dates: normalizeDateArray(dates, {
+        fieldName: "dates",
+        frequency: normalizedFrequency,
+      }),
     };
   }
 
@@ -113,6 +129,7 @@ const buildMedicationSchedule = ({ frequency, days, dates }) => {
 
 module.exports = {
   MEDICATION_FREQUENCIES,
+  DATE_BASED_FREQUENCIES,
   WEEK_DAYS,
   buildMedicationSchedule,
 };
