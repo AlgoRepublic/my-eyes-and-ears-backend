@@ -4,6 +4,7 @@ const {
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
 } = require("./memberAccess");
+const { parseDateInputToUtc } = require("../../utils/utcDateTime");
 
 const mapAppointment = (item) => ({
   id: item._id,
@@ -24,8 +25,8 @@ const toDateOrNull = (value, fieldName) => {
     return null;
   }
 
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) {
+  const parsedDate = parseDateInputToUtc(value);
+  if (!parsedDate) {
     throw new CustomError(`${fieldName} must be a valid date`, [], 400);
   }
 

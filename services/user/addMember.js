@@ -14,6 +14,7 @@ const {
 } = require("./invitation");
 const { buildMedicationSchedule } = require("./medicationSchedule");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const { parseDateInputToUtc } = require("../../utils/utcDateTime");
 
 const buildFamilyName = async (familyId) => {
   const family = await Family.findById(familyId);
@@ -110,6 +111,14 @@ const isInvitationCodeDuplicateError = (error) => {
       Boolean(error?.keyValue?.familyInvitationCode) ||
       String(error?.message || "").includes("familyInvitationCode"))
   );
+};
+
+const parseOptionalDate = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return parseDateInputToUtc(value);
 };
 
 const addMemberService = async (currentUser, data = {}) => {
@@ -243,8 +252,8 @@ const addMemberService = async (currentUser, data = {}) => {
             frequency: schedule.frequency,
             days: schedule.days,
             dates: schedule.dates,
-            startDate: item.startDate ? new Date(item.startDate) : null,
-            endDate: item.endDate ? new Date(item.endDate) : null,
+            startDate: parseOptionalDate(item.startDate),
+            endDate: parseOptionalDate(item.endDate),
             notes: item.notes ? String(item.notes).trim() : null,
             time: item.time ? String(item.time).trim() : null,
           };
@@ -295,7 +304,7 @@ const addMemberService = async (currentUser, data = {}) => {
           userId: parentUser._id,
           doctorName: String(item.doctorName).trim(),
           reason: item.reason ? String(item.reason).trim() : null,
-          date: item.date ? new Date(item.date) : null,
+          date: parseOptionalDate(item.date),
           time: item.time ? String(item.time).trim() : null,
           location: item.location ? String(item.location).trim() : null,
           clinicPhone: item.clinicPhone
