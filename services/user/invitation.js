@@ -9,11 +9,12 @@ const INVITATION_CODE_LENGTH = 8;
 const buildInvitationDetails = (user) => {
   const lastInvitationTime = user.lastInvitationTime || null;
   const invitationCode = user.familyInvitationCode || null;
-  const isProfileCompleted = Boolean(user.isProfileCompleted);
+  // const isProfileCompleted = Boolean(user.isProfileCompleted);
+  const isEmailVerified = Boolean(user.isEmailVerified);
 
   let status = "waitingForActivation";
 
-  if (isProfileCompleted) {
+  if (isEmailVerified) {
     status = "activated";
   } else if (lastInvitationTime) {
     const invitationAgeMs = Date.now() - new Date(lastInvitationTime).getTime();
