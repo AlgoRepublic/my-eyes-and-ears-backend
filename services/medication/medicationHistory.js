@@ -53,7 +53,7 @@ const isMedicationApplicableForToday = (medication, now = new Date()) => {
     return selectedDays.includes(getWeekDayName(now));
   }
 
-  if (medication.frequency === "custom_dates") {
+  if (medication.frequency === "once" || medication.frequency === "custom_dates") {
     const selectedDates = Array.isArray(medication.dates)
       ? medication.dates
       : [];
