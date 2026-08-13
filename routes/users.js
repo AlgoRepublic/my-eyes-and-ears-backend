@@ -36,6 +36,7 @@ const deleteCaregiver = require("../controllers/api/v1/users/deleteCaregiver");
 const deleteProfile = require("../controllers/api/v1/users/deleteProfile");
 const updateMedicationStatus = require("../controllers/api/v1/users/updateMedicationStatus");
 const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppointmentStatus");
+const remindParent = require("../controllers/api/v1/users/remindParent");
 
 router.use(protect);
 router.patch("/update", updateProfile);
@@ -98,5 +99,7 @@ router.patch("/medications/status", updateMedicationStatus);
 router.patch("/medication/status", updateMedicationStatus);
 router.patch("/appointments/status", updateAppointmentStatus);
 router.patch("/appointment/status", updateAppointmentStatus);
+router.post("/members/:userId/remind", remindParent);
+router.post("/parents/remind", remindParent);
 
 module.exports = router;
