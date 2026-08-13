@@ -3,10 +3,20 @@ const { CustomError } = require("../../utils/error");
 const {
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
+  ensureParentUserAccessOrThrow,
 } = require("./memberAccess");
+const {
+  getUpcomingAppointmentsResponse,
+} = require("../appointment/upcomingAppointments");
+const {
+  getComputedAppointmentStatus,
+  RESCHEDULED_STATUS,
+  SCHEDULED_STATUS,
+} = require("../appointment/dashboardAppointments");
+const { CAREGIVER_ALLOWED_STATUSES } = require("../appointment/updateAppointmentStatus");
 const { parseDateInputToUtc } = require("../../utils/utcDateTime");
 
-const mapAppointment = (item) => ({
+const mapAppointment = (item, now = new Date()) => ({
   id: item._id,
   userId: item.userId,
   doctorName: item.doctorName,
@@ -17,7 +27,7 @@ const mapAppointment = (item) => ({
   clinicPhone: item.clinicPhone,
   note: item.note,
   rider: item.rider,
-  status: item.status,
+  status: getComputedAppointmentStatus(item, now),
 });
 
 const toDateOrNull = (value, fieldName) => {
@@ -57,7 +67,15 @@ const createMemberAppointmentService = async (
       : null,
     note: payload.note ? String(payload.note).trim() : null,
     rider: payload.rider ? String(payload.rider).trim() : null,
-    status: payload.status ? String(payload.status).trim() : "scheduled",
+    status: (() => {
+      const normalizedStatus = payload.status
+        ? String(payload.status).trim().toLowerCase()
+        : SCHEDULED_STATUS;
+      if (!CAREGIVER_ALLOWED_STATUSES.has(normalizedStatus)) {
+        throw new CustomError("Invalid appointment status", [], 400);
+      }
+      return normalizedStatus;
+    })(),
   });
 
   return {
@@ -127,9 +145,15 @@ const updateMemberAppointmentService = async (
   }
 
   if (payload.status !== undefined) {
-    appointment.status = payload.status
-      ? String(payload.status).trim()
-      : "scheduled";
+    const normalizedStatus = String(payload.status).trim().toLowerCase();
+    if (!CAREGIVER_ALLOWED_STATUSES.has(normalizedStatus)) {
+      throw new CustomError("Invalid appointment status", [], 400);
+    }
+    appointment.status = normalizedStatus;
+  }
+
+  if (appointment.status === RESCHEDULED_STATUS) {
+    appointment.status = SCHEDULED_STATUS;
   }
 
   await appointment.save();
@@ -164,7 +188,18 @@ const deleteMemberAppointmentService = async (
   };
 };
 
+const getUpcomingAppointmentsService = async (currentUser, userId) => {
+  if (!userId) {
+    throw new CustomError("userId is required", [], 400);
+  }
+
+  const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
+
+  return getUpcomingAppointmentsResponse(parentUser._id);
+};
+
 module.exports = {
+  getUpcomingAppointmentsService,
   createMemberAppointmentService,
   updateMemberAppointmentService,
   deleteMemberAppointmentService,

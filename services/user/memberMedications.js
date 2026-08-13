@@ -8,6 +8,7 @@ const { buildMedicationSchedule } = require("./medicationSchedule");
 const {
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
+  ensureParentUserAccessOrThrow,
 } = require("./memberAccess");
 const { parseDateInputToUtc } = require("../../utils/utcDateTime");
 
@@ -190,22 +191,13 @@ const getMemberMedicationsService = async (currentUser, memberId) => {
   };
 };
 
-const getParentTodayMedicationsService = async (currentUser) => {
-  const parentId = currentUser?._id || currentUser?.id;
-
-  if (!parentId) {
-    throw new CustomError("Authenticated user is required", [], 401);
+const getParentTodayMedicationsService = async (currentUser, userId) => {
+  if (!userId) {
+    throw new CustomError("userId is required", [], 400);
   }
 
-  if (currentUser?.role && currentUser.role !== "parent") {
-    throw new CustomError(
-      "Only parent users can access this endpoint",
-      [],
-      403,
-    );
-  }
-
-  const medications = await getTodayMedicationResponse(parentId);
+  const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
+  const medications = await getTodayMedicationResponse(parentUser._id);
 
   return {
     medications,

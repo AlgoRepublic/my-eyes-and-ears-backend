@@ -12,8 +12,11 @@ const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 const {
   getUtcDateTimeFromStoredTime,
-  getUtcDateTimeFromDateAndTime,
+  getUtcStartOfDay,
 } = require("../../utils/utcDateTime");
+const {
+  formatUpcomingAppointments,
+} = require("../appointment/upcomingAppointments");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -45,36 +48,34 @@ const pickNearestUpcomingByTime = (
   return nearest;
 };
 
-const pickNearestUpcomingAppointment = (
-  appointments = [],
-  now = new Date(),
-) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const appointment of appointments) {
-    if (
-      appointment?.status &&
-      appointment.status !== "scheduled" &&
-      appointment.status !== "upcoming"
-    ) {
-      continue;
-    }
-
-    const dateTime = getUtcDateTimeFromDateAndTime(
-      appointment?.date,
-      appointment?.time,
-    );
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = appointment;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
-};
+const mapMemberAppointments = (appointments = []) =>
+  appointments.map(
+    ({
+      id,
+      userId,
+      doctorName,
+      reason,
+      date,
+      time,
+      location,
+      clinicPhone,
+      note,
+      rider,
+      status,
+    }) => ({
+      id,
+      userId,
+      doctorName,
+      reason,
+      date,
+      time,
+      location,
+      clinicPhone,
+      note,
+      rider,
+      status,
+    }),
+  );
 
 const getMemberDetailService = async (currentUser, userId) => {
   getCaregiverIdOrThrow(currentUser);
@@ -96,6 +97,9 @@ const getMemberDetailService = async (currentUser, userId) => {
     throw new CustomError("Parent member not found", [], 404);
   }
 
+  const now = new Date();
+  const todayStart = getUtcStartOfDay(now);
+
   const [
     profileSetting,
     medications,
@@ -107,8 +111,14 @@ const getMemberDetailService = async (currentUser, userId) => {
     Medication.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
     Contact.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
     CheckinReminder.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
-    Appointment.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
+    Appointment.find({
+      userId: parentUser._id,
+      status: { $nin: ["completed", "cancelled"] },
+      date: { $gte: todayStart },
+    }).sort({ createdAt: 1 }),
   ]);
+
+  const upcomingAppointments = formatUpcomingAppointments(appointments, now);
 
   const familyName = await buildFamilyName(familyId);
   const memberResponse = buildMemberResponse({
@@ -118,12 +128,12 @@ const getMemberDetailService = async (currentUser, userId) => {
     medications,
     contacts,
     checkinReminders,
-    appointments,
+    appointments: [],
   });
 
-  const now = new Date();
   const member = {
     ...memberResponse,
+    appointments: mapMemberAppointments(upcomingAppointments),
     recentData: {
       upcomingMedication: (() => {
         const item = pickNearestUpcomingByTime(
@@ -138,10 +148,7 @@ const getMemberDetailService = async (currentUser, userId) => {
         (item) => item.time,
         now,
       ),
-      upcomingAppointment: pickNearestUpcomingAppointment(
-        memberResponse.appointments,
-        now,
-      ),
+      upcomingAppointment: upcomingAppointments[0] || null,
       sosStatus: null,
     },
   };

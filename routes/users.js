@@ -19,6 +19,7 @@ const {
   deleteMemberContact,
 } = require("../controllers/api/v1/users/memberContacts");
 const {
+  getUpcomingAppointments,
   createMemberAppointment,
   updateMemberAppointment,
   deleteMemberAppointment,
@@ -63,6 +64,7 @@ router.delete("/members/:userId/contacts/:contactId", deleteMemberContact);
 // ==================contacts end==================
 
 // ==================appointments start==================
+router.get("/appointments/upcoming", getUpcomingAppointments);
 router.post("/members/:userId/appointments", createMemberAppointment);
 router.patch(
   "/members/:userId/appointments/:appointmentId",

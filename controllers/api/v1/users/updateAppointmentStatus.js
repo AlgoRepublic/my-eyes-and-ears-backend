@@ -4,10 +4,16 @@ const {
 } = require("../../../../services/appointment/updateAppointmentStatus");
 
 module.exports = asyncMiddleware(async (req, res, next) => {
-  const { appointmentId, status } = { ...req.body, ...req.query };
+  const appointmentId =
+    req.params.appointmentId ||
+    req.body?.appointmentId ||
+    req.query?.appointmentId;
+  const status = req.body?.status || req.query?.status;
+  const userId = req.query.userId || req.body?.userId;
 
   const data = await updateAppointmentStatusService({
-    userId: req.user.id,
+    currentUser: req.user,
+    userId,
     appointmentId,
     status,
   });
