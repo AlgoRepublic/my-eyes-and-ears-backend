@@ -65,6 +65,44 @@ const ensurePrimaryCaregiverOrThrow = (currentUser) => {
   return caregiverId;
 };
 
+const ensureParentUserAccessOrThrow = async (currentUser, parentUserId) => {
+  const normalizedParentId = ensureObjectIdOrThrow(parentUserId, "userId");
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
+  const currentRole = currentUser?.role;
+
+  if (currentRole === "parent") {
+    if (currentUserId !== String(normalizedParentId)) {
+      throw new CustomError(
+        "You can only access your own family member data",
+        [],
+        403,
+      );
+    }
+
+    const parentUser = await User.findOne({
+      _id: normalizedParentId,
+      role: "parent",
+      ...ACTIVE_USER_FILTER,
+    });
+
+    if (!parentUser) {
+      throw new CustomError("Parent user not found", [], 404);
+    }
+
+    return parentUser;
+  }
+
+  if (currentRole === "caregiver") {
+    return ensureParentMemberOrThrow(currentUser, normalizedParentId);
+  }
+
+  throw new CustomError(
+    "Only parent or caregiver users can access this endpoint",
+    [],
+    403,
+  );
+};
+
 const ensureCaregiverMemberOrThrow = async (currentUser, caregiverId) => {
   ensurePrimaryCaregiverOrThrow(currentUser);
   const familyId = await getFamilyIdOrThrow(currentUser);
@@ -95,6 +133,7 @@ module.exports = {
   getCaregiverIdOrThrow,
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
+  ensureParentUserAccessOrThrow,
   ensurePrimaryCaregiverOrThrow,
   ensureCaregiverMemberOrThrow,
 };

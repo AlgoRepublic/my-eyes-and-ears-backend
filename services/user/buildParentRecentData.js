@@ -40,9 +40,8 @@ const pickNearestUpcomingAppointment = (
 
   for (const appointment of appointments) {
     if (
-      appointment?.status &&
-      appointment.status !== "scheduled" &&
-      appointment.status !== "upcoming"
+      appointment?.status === "completed" ||
+      appointment?.status === "cancelled"
     ) {
       continue;
     }

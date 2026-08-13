@@ -5,8 +5,16 @@ const { getUtcDateTimeFromDateAndTime } = require("../../utils/utcDateTime");
 const COMPLETED_STATUS = "completed";
 const CANCELLED_STATUS = "cancelled";
 const SCHEDULED_STATUS = "scheduled";
+const CONFIRMED_STATUS = "confirmed";
+const RESCHEDULED_STATUS = "rescheduled";
 const UPCOMING_STATUS = "upcoming";
 const MISSED_STATUS = "missed";
+
+const ACTIVE_APPOINTMENT_STATUSES = new Set([
+  SCHEDULED_STATUS,
+  CONFIRMED_STATUS,
+  RESCHEDULED_STATUS,
+]);
 
 const getAppointmentDateTime = (appointment) => {
   return getUtcDateTimeFromDateAndTime(appointment?.date, appointment?.time);
@@ -29,6 +37,13 @@ const getComputedAppointmentStatus = (appointment, now = new Date()) => {
     }
 
     return appointmentDateTime > now ? UPCOMING_STATUS : MISSED_STATUS;
+  }
+
+  if (
+    appointment.status === CONFIRMED_STATUS ||
+    appointment.status === RESCHEDULED_STATUS
+  ) {
+    return appointment.status;
   }
 
   return appointment.status;
@@ -91,6 +106,14 @@ const getDashboardAppointments = async (userId) => {
 };
 
 module.exports = {
+  COMPLETED_STATUS,
+  CANCELLED_STATUS,
+  SCHEDULED_STATUS,
+  CONFIRMED_STATUS,
+  RESCHEDULED_STATUS,
+  ACTIVE_APPOINTMENT_STATUSES,
   getDashboardAppointments,
   getComputedAppointmentStatus,
+  mapAppointmentResponse,
+  sortByAppointmentDateTimeAsc,
 };

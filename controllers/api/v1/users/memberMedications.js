@@ -19,7 +19,8 @@ const getMemberMedications = asyncMiddleware(async (req, res, next) => {
 });
 
 const getParentTodayMedications = asyncMiddleware(async (req, res, next) => {
-  const data = await getParentTodayMedicationsService(req.user);
+  const userId = req.query.userId || req.body?.userId;
+  const data = await getParentTodayMedicationsService(req.user, userId);
 
   next({
     success: true,

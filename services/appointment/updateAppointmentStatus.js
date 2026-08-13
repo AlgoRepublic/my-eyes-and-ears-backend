@@ -1,10 +1,37 @@
 const Appointment = require("../../models/appointment");
 const { CustomError } = require("../../utils/error");
-const { getComputedAppointmentStatus } = require("./dashboardAppointments");
+const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
+const {
+  getComputedAppointmentStatus,
+  mapAppointmentResponse,
+  SCHEDULED_STATUS,
+  CONFIRMED_STATUS,
+  RESCHEDULED_STATUS,
+  COMPLETED_STATUS,
+  CANCELLED_STATUS,
+} = require("./dashboardAppointments");
 
-const ALLOWED_STATUSES = new Set(["scheduled", "completed", "cancelled"]);
+const PARENT_ALLOWED_STATUSES = new Set([CONFIRMED_STATUS, RESCHEDULED_STATUS]);
+const CAREGIVER_ALLOWED_STATUSES = new Set([
+  SCHEDULED_STATUS,
+  COMPLETED_STATUS,
+  CANCELLED_STATUS,
+]);
+
+const getAllowedStatusesForRole = (role) => {
+  if (role === "parent") {
+    return PARENT_ALLOWED_STATUSES;
+  }
+
+  if (role === "caregiver") {
+    return CAREGIVER_ALLOWED_STATUSES;
+  }
+
+  return null;
+};
 
 const updateAppointmentStatusService = async ({
+  currentUser,
   userId,
   appointmentId,
   status,
@@ -17,15 +44,26 @@ const updateAppointmentStatusService = async ({
     throw new CustomError("appointmentId and status are required", [], 400);
   }
 
+  const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
   const normalizedStatus = String(status).trim().toLowerCase();
-  if (!ALLOWED_STATUSES.has(normalizedStatus)) {
+  const allowedStatuses = getAllowedStatusesForRole(currentUser?.role);
+
+  if (!allowedStatuses) {
+    throw new CustomError(
+      "Only parent or caregiver users can update appointment status",
+      [],
+      403,
+    );
+  }
+
+  if (!allowedStatuses.has(normalizedStatus)) {
     throw new CustomError("Invalid appointment status", [], 400);
   }
 
   const updatedAppointment = await Appointment.findOneAndUpdate(
     {
       _id: appointmentId,
-      userId,
+      userId: parentUser._id,
     },
     {
       $set: {
@@ -44,23 +82,11 @@ const updateAppointmentStatusService = async ({
 
   const computedStatus = getComputedAppointmentStatus(updatedAppointment);
 
-  return {
-    id: updatedAppointment._id,
-    userId: updatedAppointment.userId,
-    doctorName: updatedAppointment.doctorName,
-    reason: updatedAppointment.reason,
-    date: updatedAppointment.date,
-    time: updatedAppointment.time,
-    location: updatedAppointment.location,
-    clinicPhone: updatedAppointment.clinicPhone,
-    note: updatedAppointment.note,
-    rider: updatedAppointment.rider,
-    status: computedStatus,
-    createdAt: updatedAppointment.createdAt,
-    updatedAt: updatedAppointment.updatedAt,
-  };
+  return mapAppointmentResponse(updatedAppointment, computedStatus);
 };
 
 module.exports = {
   updateAppointmentStatusService,
+  PARENT_ALLOWED_STATUSES,
+  CAREGIVER_ALLOWED_STATUSES,
 };

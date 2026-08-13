@@ -85,6 +85,7 @@ const mapMedicationResponse = (medication, status) => {
     endDate: medication.endDate,
     notes: medication.notes,
     time: medication.time,
+    remindAt: medication.remindAt,
     status,
     actions: getActionsByStatus(status),
   };
