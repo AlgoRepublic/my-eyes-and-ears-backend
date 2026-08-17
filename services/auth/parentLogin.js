@@ -2,11 +2,13 @@ const jwt = require("jsonwebtoken");
 const User = require("../../models/user");
 const ProfileSetting = require("../../models/profileSetting");
 const Contact = require("../../models/contact");
-const CheckinReminder = require("../../models/checkinReminder");
 const Family = require("../../models/family");
 const {
   getTodayMedicationResponse,
 } = require("../medication/medicationHistory");
+const {
+  getTodayCheckinResponse,
+} = require("../checkin/checkinHistory");
 const {
   getDashboardAppointments,
 } = require("../appointment/dashboardAppointments");
@@ -38,6 +40,27 @@ const pickNearestUpcomingByTime = (
 
     if (!nearestDateTime || dateTime < nearestDateTime) {
       nearest = item;
+      nearestDateTime = dateTime;
+    }
+  }
+
+  return nearest;
+};
+
+const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
+  let nearest = null;
+  let nearestDateTime = null;
+
+  for (const checkin of checkins) {
+    if (checkin.status === "completed" || checkin.status === "skipped") {
+      continue;
+    }
+
+    const dateTime = getUtcDateTimeFromStoredTime(checkin?.time, now);
+    if (!dateTime || dateTime <= now) continue;
+
+    if (!nearestDateTime || dateTime < nearestDateTime) {
+      nearest = checkin;
       nearestDateTime = dateTime;
     }
   }
@@ -121,7 +144,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
     ProfileSetting.findOne({ userId: parentUser._id }),
     getTodayMedicationResponse(parentUser._id),
     Contact.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
-    CheckinReminder.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
+    getTodayCheckinResponse(parentUser._id),
     getDashboardAppointments(parentUser._id),
   ]);
 
@@ -140,11 +163,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
     (medication) => medication?.time,
     now,
   );
-  const upcomingCheckin = pickNearestUpcomingByTime(
-    checkinReminders,
-    (item) => item?.time,
-    now,
-  );
+  const upcomingCheckin = pickNearestUpcomingCheckin(checkinReminders, now);
   const upcomingAppointment = pickNearestUpcomingAppointment(
     dashboardAppointments?.appointments || [],
     now,

@@ -17,6 +17,7 @@ const {
 const {
   formatUpcomingAppointments,
 } = require("../appointment/upcomingAppointments");
+const { getTodayCheckinResponse } = require("../checkin/checkinHistory");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -41,6 +42,27 @@ const pickNearestUpcomingByTime = (
 
     if (!nearestDateTime || dateTime < nearestDateTime) {
       nearest = item;
+      nearestDateTime = dateTime;
+    }
+  }
+
+  return nearest;
+};
+
+const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
+  let nearest = null;
+  let nearestDateTime = null;
+
+  for (const checkin of checkins) {
+    if (checkin.status === "completed" || checkin.status === "skipped") {
+      continue;
+    }
+
+    const dateTime = getUtcDateTimeFromStoredTime(checkin?.time, now);
+    if (!dateTime || dateTime <= now) continue;
+
+    if (!nearestDateTime || dateTime < nearestDateTime) {
+      nearest = checkin;
       nearestDateTime = dateTime;
     }
   }
@@ -106,6 +128,7 @@ const getMemberDetailService = async (currentUser, userId) => {
     contacts,
     checkinReminders,
     appointments,
+    todayCheckins,
   ] = await Promise.all([
     ProfileSetting.findOne({ userId: parentUser._id }),
     Medication.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
@@ -116,6 +139,7 @@ const getMemberDetailService = async (currentUser, userId) => {
       status: { $nin: ["completed", "cancelled"] },
       date: { $gte: todayStart },
     }).sort({ createdAt: 1 }),
+    getTodayCheckinResponse(parentUser._id),
   ]);
 
   const upcomingAppointments = formatUpcomingAppointments(appointments, now);
@@ -143,11 +167,7 @@ const getMemberDetailService = async (currentUser, userId) => {
         );
         return item ? { ...item, status: "due" } : null;
       })(),
-      upcomingCheckin: pickNearestUpcomingByTime(
-        memberResponse.checkinReminders,
-        (item) => item.time,
-        now,
-      ),
+      upcomingCheckin: pickNearestUpcomingCheckin(todayCheckins, now),
       upcomingAppointment: upcomingAppointments[0] || null,
       sosStatus: null,
     },

@@ -1,9 +1,14 @@
 const CheckinReminder = require("../../models/checkinReminder");
+const CheckinHistory = require("../../models/checkinHistory");
 const { CustomError } = require("../../utils/error");
 const {
   ensureObjectIdOrThrow,
   ensureParentMemberOrThrow,
+  ensureParentUserAccessOrThrow,
 } = require("./memberAccess");
+const {
+  getTodayCheckinResponse,
+} = require("../checkin/checkinHistory");
 
 const mapCheckinReminder = (item) => ({
   id: item._id,
@@ -92,12 +97,38 @@ const deleteMemberCheckinService = async (currentUser, memberId, checkinId) => {
     throw new CustomError("Checkin reminder not found", [], 404);
   }
 
+  await CheckinHistory.deleteMany({ checkinReminderId: deleted._id });
+
   return {
     deletedCheckinId: String(deleted._id),
   };
 };
 
+const getMemberCheckinsService = async (currentUser, memberId) => {
+  const parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
+  const checkins = await getTodayCheckinResponse(parentUser._id);
+
+  return {
+    checkins,
+  };
+};
+
+const getTodayCheckinsService = async (currentUser, userId) => {
+  if (!userId) {
+    throw new CustomError("userId is required", [], 400);
+  }
+
+  const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
+  const checkins = await getTodayCheckinResponse(parentUser._id);
+
+  return {
+    checkins,
+  };
+};
+
 module.exports = {
+  getMemberCheckinsService,
+  getTodayCheckinsService,
   createMemberCheckinService,
   updateMemberCheckinService,
   deleteMemberCheckinService,
