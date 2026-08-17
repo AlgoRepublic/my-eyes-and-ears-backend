@@ -8,7 +8,7 @@ const {
   createCaregiverProfileSetting,
 } = require("./caregiverNotificationSettings");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
-// const { sendCaregiverCredentialsEmail } = require("../notification");
+const { sendCaregiverCredentialsEmail } = require("../notification");
 
 const PASSWORD_LENGTH = 12;
 
@@ -124,11 +124,11 @@ const addCaregiverService = async (currentUser, data = {}) => {
 
     await createCaregiverProfileSetting(caregiverUser._id);
 
-    // await sendCaregiverCredentialsEmail({
-    //   to: email,
-    //   caregiverName: caregiverUser.name,
-    //   password,
-    // });
+    await sendCaregiverCredentialsEmail({
+      to: email,
+      caregiverName: caregiverUser.name,
+      password,
+    });
   } catch (error) {
     if (caregiverUser?._id) {
       await User.deleteOne({ _id: caregiverUser._id });
