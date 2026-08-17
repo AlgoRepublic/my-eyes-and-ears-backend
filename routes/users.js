@@ -9,6 +9,8 @@ const updateMember = require("../controllers/api/v1/users/updateMember");
 const getMembers = require("../controllers/api/v1/users/getMembers");
 const getMemberDetail = require("../controllers/api/v1/users/getMemberDetail");
 const {
+  getTodayCheckins,
+  getMemberCheckins,
   createMemberCheckin,
   updateMemberCheckin,
   deleteMemberCheckin,
@@ -35,6 +37,7 @@ const deleteMember = require("../controllers/api/v1/users/deleteMember");
 const deleteCaregiver = require("../controllers/api/v1/users/deleteCaregiver");
 const deleteProfile = require("../controllers/api/v1/users/deleteProfile");
 const updateMedicationStatus = require("../controllers/api/v1/users/updateMedicationStatus");
+const updateCheckinStatus = require("../controllers/api/v1/users/updateCheckinStatus");
 const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppointmentStatus");
 const remindParent = require("../controllers/api/v1/users/remindParent");
 
@@ -53,6 +56,8 @@ router.get("/member/:userId", getMemberDetail);
 router.get("/getMemberDetail/:userId", getMemberDetail);
 router.patch("/members/:userId", updateMember);
 // ==================checkins start==================
+router.get("/checkins/today", getTodayCheckins);
+router.get("/members/:userId/checkins", getMemberCheckins);
 router.post("/members/:userId/checkins", createMemberCheckin);
 router.patch("/members/:userId/checkins/:checkinId", updateMemberCheckin);
 router.delete("/members/:userId/checkins/:checkinId", deleteMemberCheckin);
@@ -97,6 +102,10 @@ router.patch("/medications/:medicationId/status", updateMedicationStatus);
 router.patch("/medication/:medicationId/status", updateMedicationStatus);
 router.patch("/medications/status", updateMedicationStatus);
 router.patch("/medication/status", updateMedicationStatus);
+router.patch("/checkins/:checkinId/status", updateCheckinStatus);
+router.patch("/checkin/:checkinId/status", updateCheckinStatus);
+router.patch("/checkins/status", updateCheckinStatus);
+router.patch("/checkin/status", updateCheckinStatus);
 router.patch("/appointments/status", updateAppointmentStatus);
 router.patch("/appointment/status", updateAppointmentStatus);
 router.post("/members/:userId/remind", remindParent);
