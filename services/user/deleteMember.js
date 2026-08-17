@@ -3,6 +3,7 @@ const Profile = require("../../models/profile");
 const ProfileSetting = require("../../models/profileSetting");
 const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
+const CheckinHistory = require("../../models/checkinHistory");
 const Appointment = require("../../models/appointment");
 const Medication = require("../../models/medication");
 const MedicationHistory = require("../../models/medicationHistory");
@@ -24,6 +25,7 @@ const deleteMemberService = async (currentUser, memberId) => {
     Medication.deleteMany({ userId: parentUser._id }),
     Contact.deleteMany({ userId: parentUser._id }),
     CheckinReminder.deleteMany({ userId: parentUser._id }),
+    CheckinHistory.deleteMany({ userId: parentUser._id }),
     Appointment.deleteMany({ userId: parentUser._id }),
     ProfileSetting.deleteMany({ userId: parentUser._id }),
     Profile.deleteMany({ userId: parentUser._id }),
