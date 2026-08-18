@@ -7,6 +7,7 @@ const CheckinHistory = require("../../models/checkinHistory");
 const Appointment = require("../../models/appointment");
 const Medication = require("../../models/medication");
 const MedicationHistory = require("../../models/medicationHistory");
+const Notification = require("../../models/notification");
 const { ensureParentMemberOrThrow } = require("./memberAccess");
 
 const deleteMemberService = async (currentUser, memberId) => {
@@ -26,6 +27,7 @@ const deleteMemberService = async (currentUser, memberId) => {
     Contact.deleteMany({ userId: parentUser._id }),
     CheckinReminder.deleteMany({ userId: parentUser._id }),
     CheckinHistory.deleteMany({ userId: parentUser._id }),
+    Notification.deleteMany({ userId: parentUser._id }),
     Appointment.deleteMany({ userId: parentUser._id }),
     ProfileSetting.deleteMany({ userId: parentUser._id }),
     Profile.deleteMany({ userId: parentUser._id }),

@@ -15,6 +15,11 @@ const {
 const { buildMedicationSchedule } = require("./medicationSchedule");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 const { parseDateInputToUtc } = require("../../utils/utcDateTime");
+const {
+  syncMedicationNotifications,
+  syncAppointmentNotifications,
+  syncCheckinNotifications,
+} = require("../notification/sync");
 
 const buildFamilyName = async (familyId) => {
   const family = await Family.findById(familyId);
@@ -355,6 +360,16 @@ const addMemberService = async (currentUser, data = {}) => {
   }
 
   const familyName = await buildFamilyName(familyId);
+
+  for (const medication of createdMedications) {
+    syncMedicationNotifications(medication._id);
+  }
+  for (const appointment of createdAppointments) {
+    syncAppointmentNotifications(appointment._id);
+  }
+  for (const reminder of createdReminders) {
+    syncCheckinNotifications(reminder._id);
+  }
 
   return {
     user: {
