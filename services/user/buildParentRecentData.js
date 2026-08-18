@@ -1,7 +1,10 @@
-const CheckinReminder = require("../../models/checkinReminder");
 const {
   getTodayMedicationResponse,
 } = require("../medication/medicationHistory");
+const {
+  getTodayCheckinResponse,
+  buildCheckinSummary,
+} = require("../checkin/checkinHistory");
 const {
   getDashboardAppointments,
 } = require("../appointment/dashboardAppointments");
@@ -62,12 +65,11 @@ const pickNearestUpcomingAppointment = (
 };
 
 const buildParentRecentData = async (userId) => {
-  const [medications, checkinReminders, dashboardAppointments] =
-    await Promise.all([
-      getTodayMedicationResponse(userId),
-      CheckinReminder.find({ userId }).sort({ createdAt: 1 }),
-      getDashboardAppointments(userId),
-    ]);
+  const [medications, todayCheckins, dashboardAppointments] = await Promise.all([
+    getTodayMedicationResponse(userId),
+    getTodayCheckinResponse(userId),
+    getDashboardAppointments(userId),
+  ]);
 
   const now = new Date();
   const upcomingMedication = pickNearestUpcomingByTime(
@@ -75,11 +77,7 @@ const buildParentRecentData = async (userId) => {
     (medication) => medication?.time,
     now,
   );
-  const upcomingCheckin = pickNearestUpcomingByTime(
-    checkinReminders,
-    (item) => item?.time,
-    now,
-  );
+  const checkinSummary = buildCheckinSummary(todayCheckins, now);
   const upcomingAppointment = pickNearestUpcomingAppointment(
     dashboardAppointments?.appointments || [],
     now,
@@ -93,7 +91,8 @@ const buildParentRecentData = async (userId) => {
             status: "due",
           }
         : null,
-      upcomingCheckin,
+      upcomingCheckin: checkinSummary.upcomingCheckin,
+      nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
       upcomingAppointment:
         upcomingAppointment ||
         dashboardAppointments?.upcomingAppointment ||

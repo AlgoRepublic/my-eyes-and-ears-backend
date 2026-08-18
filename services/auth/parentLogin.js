@@ -8,6 +8,7 @@ const {
 } = require("../medication/medicationHistory");
 const {
   getTodayCheckinResponse,
+  buildCheckinSummary,
 } = require("../checkin/checkinHistory");
 const {
   getDashboardAppointments,
@@ -40,27 +41,6 @@ const pickNearestUpcomingByTime = (
 
     if (!nearestDateTime || dateTime < nearestDateTime) {
       nearest = item;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
-};
-
-const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const checkin of checkins) {
-    if (checkin.status === "completed" || checkin.status === "skipped") {
-      continue;
-    }
-
-    const dateTime = getUtcDateTimeFromStoredTime(checkin?.time, now);
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = checkin;
       nearestDateTime = dateTime;
     }
   }
@@ -163,7 +143,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
     (medication) => medication?.time,
     now,
   );
-  const upcomingCheckin = pickNearestUpcomingCheckin(checkinReminders, now);
+  const upcomingCheckinSummary = buildCheckinSummary(checkinReminders, now);
   const upcomingAppointment = pickNearestUpcomingAppointment(
     dashboardAppointments?.appointments || [],
     now,
@@ -225,7 +205,8 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
               status: "due",
             }
           : null,
-        upcomingCheckin,
+        upcomingCheckin: upcomingCheckinSummary.upcomingCheckin,
+        nearestPassedCheckin: upcomingCheckinSummary.nearestPassedCheckin,
         upcomingAppointment:
           upcomingAppointment ||
           dashboardAppointments?.upcomingAppointment ||

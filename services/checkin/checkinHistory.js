@@ -3,26 +3,27 @@ const CheckinHistory = require("../../models/checkinHistory");
 const { CustomError } = require("../../utils/error");
 const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
-  getUtcDateTimeFromStoredTime,
+  getUtcDateTimeForTodayCheckin,
   getUtcStartOfDay,
   getUtcEndOfDayExclusive,
+  isSameUtcDay,
 } = require("../../utils/utcDateTime");
 
 const DUE_ACTIONS = ["completed", "skipped", "remind_later"];
 const ALLOWED_STATUSES = new Set(["completed", "skipped", "remind_later"]);
 
 const deriveTemporalStatus = (checkinTime, now = new Date()) => {
-  const reminderAt = getUtcDateTimeFromStoredTime(checkinTime, now);
+  const reminderAt = getUtcDateTimeForTodayCheckin(checkinTime, now);
 
   if (!reminderAt) {
     return "due";
   }
 
-  return now > reminderAt ? "missed" : "due";
+  return now > reminderAt ? "overdue" : "due";
 };
 
 const getActionsByStatus = (status) => {
-  if (status === "due" || status === "missed" || status === "remind_later") {
+  if (status === "due" || status === "overdue" || status === "remind_later") {
     return DUE_ACTIONS;
   }
 
@@ -30,8 +31,8 @@ const getActionsByStatus = (status) => {
 };
 
 const sortByCheckinTimeAsc = (left, right, now = new Date()) => {
-  const leftDateTime = getUtcDateTimeFromStoredTime(left?.time, now);
-  const rightDateTime = getUtcDateTimeFromStoredTime(right?.time, now);
+  const leftDateTime = getUtcDateTimeForTodayCheckin(left?.time, now);
+  const rightDateTime = getUtcDateTimeForTodayCheckin(right?.time, now);
 
   if (!leftDateTime && !rightDateTime) return 0;
   if (!leftDateTime) return 1;
@@ -94,7 +95,7 @@ const getTodayCheckinResponse = async (userId) => {
     } else if (history?.status === "remind_later") {
       const remindAt = history.remindAt ? new Date(history.remindAt) : null;
       if (remindAt && !Number.isNaN(remindAt.getTime()) && now > remindAt) {
-        finalStatus = "missed";
+        finalStatus = "overdue";
       } else {
         finalStatus = "remind_later";
       }
@@ -103,6 +104,57 @@ const getTodayCheckinResponse = async (userId) => {
     return mapCheckinResponse(checkinReminder, finalStatus);
   });
 };
+
+const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
+  let nearest = null;
+  let nearestDateTime = null;
+
+  for (const checkin of checkins) {
+    if (checkin.status === "completed" || checkin.status === "skipped") {
+      continue;
+    }
+
+    const dateTime = getUtcDateTimeForTodayCheckin(checkin?.time, now);
+    if (!dateTime || dateTime <= now) continue;
+
+    if (!nearestDateTime || dateTime < nearestDateTime) {
+      nearest = checkin;
+      nearestDateTime = dateTime;
+    }
+  }
+
+  return nearest;
+};
+
+const pickNearestPassedCheckin = (checkins = [], now = new Date()) => {
+  let nearest = null;
+  let nearestDateTime = null;
+  const dayStart = getUtcStartOfDay(now);
+
+  for (const checkin of checkins) {
+    const dateTime = getUtcDateTimeForTodayCheckin(checkin?.time, now);
+    if (
+      !dateTime ||
+      !isSameUtcDay(dateTime, now) ||
+      dateTime < dayStart ||
+      dateTime > now
+    ) {
+      continue;
+    }
+
+    if (!nearestDateTime || dateTime > nearestDateTime) {
+      nearest = checkin;
+      nearestDateTime = dateTime;
+    }
+  }
+
+  return nearest;
+};
+
+const buildCheckinSummary = (checkins = [], now = new Date()) => ({
+  upcomingCheckin: pickNearestUpcomingCheckin(checkins, now) || null,
+  nearestPassedCheckin: pickNearestPassedCheckin(checkins, now) || null,
+});
 
 const updateCheckinStatusService = async ({
   currentUser,
@@ -207,4 +259,7 @@ module.exports = {
   getTodayCheckinResponse,
   updateCheckinStatusService,
   sortByCheckinTimeAsc,
+  pickNearestUpcomingCheckin,
+  pickNearestPassedCheckin,
+  buildCheckinSummary,
 };

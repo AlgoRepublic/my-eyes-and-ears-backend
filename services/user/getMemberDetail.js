@@ -17,7 +17,7 @@ const {
 const {
   formatUpcomingAppointments,
 } = require("../appointment/upcomingAppointments");
-const { getTodayCheckinResponse } = require("../checkin/checkinHistory");
+const { getTodayCheckinResponse, buildCheckinSummary } = require("../checkin/checkinHistory");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -42,27 +42,6 @@ const pickNearestUpcomingByTime = (
 
     if (!nearestDateTime || dateTime < nearestDateTime) {
       nearest = item;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
-};
-
-const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const checkin of checkins) {
-    if (checkin.status === "completed" || checkin.status === "skipped") {
-      continue;
-    }
-
-    const dateTime = getUtcDateTimeFromStoredTime(checkin?.time, now);
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = checkin;
       nearestDateTime = dateTime;
     }
   }
@@ -155,6 +134,8 @@ const getMemberDetailService = async (currentUser, userId) => {
     appointments: [],
   });
 
+  const checkinSummary = buildCheckinSummary(todayCheckins, now);
+
   const member = {
     ...memberResponse,
     appointments: mapMemberAppointments(upcomingAppointments),
@@ -167,7 +148,8 @@ const getMemberDetailService = async (currentUser, userId) => {
         );
         return item ? { ...item, status: "due" } : null;
       })(),
-      upcomingCheckin: pickNearestUpcomingCheckin(todayCheckins, now),
+      upcomingCheckin: checkinSummary.upcomingCheckin,
+      nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
       upcomingAppointment: upcomingAppointments[0] || null,
       sosStatus: null,
     },

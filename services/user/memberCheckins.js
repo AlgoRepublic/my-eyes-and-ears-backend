@@ -8,6 +8,7 @@ const {
 } = require("./memberAccess");
 const {
   getTodayCheckinResponse,
+  buildCheckinSummary,
 } = require("../checkin/checkinHistory");
 
 const mapCheckinReminder = (item) => ({
@@ -107,9 +108,11 @@ const deleteMemberCheckinService = async (currentUser, memberId, checkinId) => {
 const getMemberCheckinsService = async (currentUser, memberId) => {
   const parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
   const checkins = await getTodayCheckinResponse(parentUser._id);
+  const now = new Date();
 
   return {
     checkins,
+    ...buildCheckinSummary(checkins, now),
   };
 };
 
@@ -120,9 +123,11 @@ const getTodayCheckinsService = async (currentUser, userId) => {
 
   const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
   const checkins = await getTodayCheckinResponse(parentUser._id);
+  const now = new Date();
 
   return {
     checkins,
+    ...buildCheckinSummary(checkins, now),
   };
 };
 

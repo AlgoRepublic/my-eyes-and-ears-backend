@@ -4,6 +4,10 @@ const Medication = require("../../models/medication");
 const Contact = require("../../models/contact");
 const CheckinReminder = require("../../models/checkinReminder");
 const Appointment = require("../../models/appointment");
+const {
+  getTodayCheckinResponse,
+  buildCheckinSummary,
+} = require("../checkin/checkinHistory");
 const { buildMemberResponse } = require("./addMember");
 const {
   getUtcDateTimeFromStoredTime,
@@ -114,6 +118,19 @@ const buildMembersListResponse = async (
   const contactsByUserId = groupByUserId(contacts);
   const remindersByUserId = groupByUserId(checkinReminders);
   const appointmentsByUserId = groupByUserId(appointments);
+  const todayCheckinsEntries = await Promise.all(
+    memberIds.map(async (memberId) => ({
+      userId: String(memberId),
+      checkins: await getTodayCheckinResponse(memberId),
+    })),
+  );
+  const todayCheckinsByUserId = todayCheckinsEntries.reduce(
+    (accumulator, entry) => {
+      accumulator.set(entry.userId, entry.checkins);
+      return accumulator;
+    },
+    new Map(),
+  );
   const now = new Date();
   const familyName = await buildFamilyName(members[0]?.familyId);
 
@@ -137,6 +154,9 @@ const buildMembersListResponse = async (
       ...memberResponseWithoutScheduleData
     } = memberResponse;
 
+    const todayCheckins = todayCheckinsByUserId.get(String(member._id)) || [];
+    const checkinSummary = buildCheckinSummary(todayCheckins, now);
+
     return {
       ...memberResponseWithoutScheduleData,
       ...(includeMedicationCount
@@ -151,11 +171,8 @@ const buildMembersListResponse = async (
           );
           return item ? { ...item, status: "due" } : null;
         })(),
-        upcomingCheckin: pickNearestUpcomingByTime(
-          memberResponse.checkinReminders,
-          (item) => item.time,
-          now,
-        ),
+        upcomingCheckin: checkinSummary.upcomingCheckin,
+        nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
         upcomingAppointment: pickNearestUpcomingAppointment(
           memberResponse.appointments,
           now,

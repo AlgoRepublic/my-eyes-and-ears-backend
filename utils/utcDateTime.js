@@ -67,6 +67,32 @@ const getUtcDateTimeFromStoredTime = (timeValue, now = new Date()) => {
   return getUtcDateTimeForTodayTime(raw, now);
 };
 
+const getUtcDateTimeForTodayCheckin = (timeValue, now = new Date()) => {
+  if (!timeValue) return null;
+
+  const raw = String(timeValue).trim();
+  if (!raw) return null;
+
+  if (/\d{4}-\d{2}-\d{2}T/i.test(raw)) {
+    const parsedDate = parseDateInputToUtc(raw);
+    if (!parsedDate) return null;
+
+    return new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        parsedDate.getUTCHours(),
+        parsedDate.getUTCMinutes(),
+        parsedDate.getUTCSeconds(),
+        parsedDate.getUTCMilliseconds(),
+      ),
+    );
+  }
+
+  return getUtcDateTimeForTodayTime(raw, now);
+};
+
 const getUtcDateTimeFromDateAndTime = (dateValue, timeValue) => {
   if (!dateValue) return null;
 
@@ -204,6 +230,7 @@ const parseDateInputToUtc = (value) => {
 module.exports = {
   parseTimeParts,
   getUtcDateTimeForTodayTime,
+  getUtcDateTimeForTodayCheckin,
   getUtcDateTimeFromStoredTime,
   getUtcDateTimeFromDateAndTime,
   getUtcStartOfDay,
