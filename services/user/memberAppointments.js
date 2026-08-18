@@ -15,6 +15,9 @@ const {
 } = require("../appointment/dashboardAppointments");
 const { CAREGIVER_ALLOWED_STATUSES } = require("../appointment/updateAppointmentStatus");
 const { parseDateInputToUtc } = require("../../utils/utcDateTime");
+const {
+  syncAppointmentNotifications,
+} = require("../notification/sync");
 
 const mapAppointment = (item, now = new Date()) => ({
   id: item._id,
@@ -77,6 +80,8 @@ const createMemberAppointmentService = async (
       return normalizedStatus;
     })(),
   });
+
+  syncAppointmentNotifications(appointment._id);
 
   return {
     appointment: mapAppointment(appointment),
@@ -158,6 +163,8 @@ const updateMemberAppointmentService = async (
 
   await appointment.save();
 
+  syncAppointmentNotifications(appointment._id);
+
   return {
     appointment: mapAppointment(appointment),
   };
@@ -182,6 +189,12 @@ const deleteMemberAppointmentService = async (
   if (!deleted) {
     throw new CustomError("Appointment not found", [], 404);
   }
+
+  const { cancelFutureNotifications } = require("../notification/notification.service");
+  cancelFutureNotifications({
+    type: "appointment",
+    referenceId: deleted._id,
+  });
 
   return {
     deletedAppointmentId: String(deleted._id),

@@ -10,6 +10,7 @@ const {
   getTodayCheckinResponse,
   buildCheckinSummary,
 } = require("../checkin/checkinHistory");
+const { syncCheckinNotifications } = require("../notification/sync");
 
 const mapCheckinReminder = (item) => ({
   id: item._id,
@@ -38,6 +39,8 @@ const createMemberCheckinService = async (
     isEnabled:
       payload.isEnabled !== undefined ? Boolean(payload.isEnabled) : true,
   });
+
+  syncCheckinNotifications(checkinReminder._id);
 
   return {
     checkinReminder: mapCheckinReminder(checkinReminder),
@@ -80,6 +83,8 @@ const updateMemberCheckinService = async (
 
   await checkinReminder.save();
 
+  syncCheckinNotifications(checkinReminder._id);
+
   return {
     checkinReminder: mapCheckinReminder(checkinReminder),
   };
@@ -99,6 +104,12 @@ const deleteMemberCheckinService = async (currentUser, memberId, checkinId) => {
   }
 
   await CheckinHistory.deleteMany({ checkinReminderId: deleted._id });
+
+  const { cancelFutureNotifications } = require("../notification/notification.service");
+  cancelFutureNotifications({
+    type: "checkinReminder",
+    referenceId: deleted._id,
+  });
 
   return {
     deletedCheckinId: String(deleted._id),
