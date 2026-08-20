@@ -10,14 +10,15 @@ const { buildMemberResponse } = require("./addMember");
 const { getCaregiverIdOrThrow } = require("./memberAccess");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
-const {
-  getUtcDateTimeFromStoredTime,
-  getUtcStartOfDay,
-} = require("../../utils/utcDateTime");
+const { getUtcStartOfDay } = require("../../utils/utcDateTime");
 const {
   formatUpcomingAppointments,
 } = require("../appointment/upcomingAppointments");
 const { getTodayCheckinResponse, buildCheckinSummary } = require("../checkin/checkinHistory");
+const {
+  getTodayMedicationResponse,
+  pickNearestUpcomingMedication,
+} = require("../medication/medicationHistory");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -26,27 +27,6 @@ const buildFamilyName = async (familyId) => {
 
   const family = await Family.findById(familyId).select("name");
   return family?.name || "";
-};
-
-const pickNearestUpcomingByTime = (
-  items = [],
-  timeAccessor,
-  now = new Date(),
-) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const item of items) {
-    const dateTime = getUtcDateTimeFromStoredTime(timeAccessor(item), now);
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = item;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
 };
 
 const mapMemberAppointments = (appointments = []) =>
@@ -108,6 +88,7 @@ const getMemberDetailService = async (currentUser, userId) => {
     checkinReminders,
     appointments,
     todayCheckins,
+    todayMedications,
   ] = await Promise.all([
     ProfileSetting.findOne({ userId: parentUser._id }),
     Medication.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
@@ -119,6 +100,7 @@ const getMemberDetailService = async (currentUser, userId) => {
       date: { $gte: todayStart },
     }).sort({ createdAt: 1 }),
     getTodayCheckinResponse(parentUser._id),
+    getTodayMedicationResponse(parentUser._id),
   ]);
 
   const upcomingAppointments = formatUpcomingAppointments(appointments, now);
@@ -140,14 +122,8 @@ const getMemberDetailService = async (currentUser, userId) => {
     ...memberResponse,
     appointments: mapMemberAppointments(upcomingAppointments),
     recentData: {
-      upcomingMedication: (() => {
-        const item = pickNearestUpcomingByTime(
-          memberResponse.medications,
-          (medication) => medication.time,
-          now,
-        );
-        return item ? { ...item, status: "due" } : null;
-      })(),
+      upcomingMedication:
+        pickNearestUpcomingMedication(todayMedications, now) || null,
       upcomingCheckin: checkinSummary.upcomingCheckin,
       nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
       upcomingAppointment: upcomingAppointments[0] || null,
