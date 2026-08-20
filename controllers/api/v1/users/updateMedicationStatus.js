@@ -10,9 +10,11 @@ module.exports = asyncMiddleware(async (req, res, next) => {
     req.query?.medicationId;
   const status = req.body?.status || req.query?.status;
   const remindAt = req.body?.remindAt || req.query?.remindAt;
+  const userId = req.query.userId || req.body?.userId;
 
   const data = await updateMedicationStatusService({
-    userId: req.user.id,
+    currentUser: req.user,
+    userId,
     medicationId,
     status,
     remindAt,

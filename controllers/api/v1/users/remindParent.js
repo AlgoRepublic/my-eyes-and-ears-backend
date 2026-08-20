@@ -9,6 +9,12 @@ const remindParent = asyncMiddleware(async (req, res, next) => {
       req.body?.appointmentId ||
       req.query?.appointmentId ||
       req.params?.appointmentId,
+    medicationId:
+      req.body?.medicationId ||
+      req.query?.medicationId ||
+      req.params?.medicationId,
+    checkinId:
+      req.body?.checkinId || req.query?.checkinId || req.params?.checkinId,
   };
   const data = await remindParentService(req.user, userId, payload);
 
