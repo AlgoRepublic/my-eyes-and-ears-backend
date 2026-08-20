@@ -10,6 +10,7 @@ const {
   COMPLETED_STATUS,
   CANCELLED_STATUS,
 } = require("./dashboardAppointments");
+const { syncAppointmentNotifications } = require("../notification/sync");
 
 const PARENT_ALLOWED_STATUSES = new Set([CONFIRMED_STATUS, RESCHEDULED_STATUS]);
 const CAREGIVER_ALLOWED_STATUSES = new Set([
@@ -79,6 +80,8 @@ const updateAppointmentStatusService = async ({
   if (!updatedAppointment) {
     throw new CustomError("Appointment not found", [], 404);
   }
+
+  syncAppointmentNotifications(updatedAppointment._id);
 
   const computedStatus = getComputedAppointmentStatus(updatedAppointment);
 
