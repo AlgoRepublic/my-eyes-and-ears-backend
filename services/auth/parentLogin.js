@@ -3,79 +3,15 @@ const User = require("../../models/user");
 const ProfileSetting = require("../../models/profileSetting");
 const Contact = require("../../models/contact");
 const Family = require("../../models/family");
-const {
-  getTodayMedicationResponse,
-} = require("../medication/medicationHistory");
-const {
-  getTodayCheckinResponse,
-  buildCheckinSummary,
-} = require("../checkin/checkinHistory");
-const {
-  getDashboardAppointments,
-} = require("../appointment/dashboardAppointments");
 const { addFcmTokenToUser } = require("./fcmToken");
 const { CustomError } = require("../../utils/error");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
-const {
-  getUtcDateTimeFromStoredTime,
-  getUtcDateTimeFromDateAndTime,
-} = require("../../utils/utcDateTime");
+const { buildParentRecentData } = require("../user/buildParentRecentData");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
     expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1m",
   });
-};
-
-const pickNearestUpcomingByTime = (
-  items = [],
-  timeAccessor,
-  now = new Date(),
-) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const item of items) {
-    const dateTime = getUtcDateTimeFromStoredTime(timeAccessor(item), now);
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = item;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
-};
-
-const pickNearestUpcomingAppointment = (
-  appointments = [],
-  now = new Date(),
-) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const appointment of appointments) {
-    if (
-      appointment?.status === "completed" ||
-      appointment?.status === "cancelled"
-    ) {
-      continue;
-    }
-
-    const dateTime = getUtcDateTimeFromDateAndTime(
-      appointment?.date,
-      appointment?.time,
-    );
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = appointment;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
 };
 
 const buildFamilyName = async (familyId) => {
@@ -114,19 +50,12 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
   parentUser.isProfileCompleted = true; // Mark profile as completed upon successful login
   await parentUser.save();
 
-  const [
-    profileSetting,
-    medications,
-    contacts,
-    checkinReminders,
-    dashboardAppointments,
-  ] = await Promise.all([
-    ProfileSetting.findOne({ userId: parentUser._id }),
-    getTodayMedicationResponse(parentUser._id),
-    Contact.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
-    getTodayCheckinResponse(parentUser._id),
-    getDashboardAppointments(parentUser._id),
-  ]);
+  const [profileSetting, contacts, { recentData, medicationDuesCount }] =
+    await Promise.all([
+      ProfileSetting.findOne({ userId: parentUser._id }),
+      Contact.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
+      buildParentRecentData(parentUser._id),
+    ]);
 
   const accessToken = signAccessToken(parentUser);
   const refreshToken = jwt.sign(
@@ -137,17 +66,6 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
     },
   );
   const familyName = await buildFamilyName(parentUser.familyId);
-  const now = new Date();
-  const upcomingMedication = pickNearestUpcomingByTime(
-    medications,
-    (medication) => medication?.time,
-    now,
-  );
-  const upcomingCheckinSummary = buildCheckinSummary(checkinReminders, now);
-  const upcomingAppointment = pickNearestUpcomingAppointment(
-    dashboardAppointments?.appointments || [],
-    now,
-  );
 
   return {
     user: {
@@ -198,24 +116,8 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
             shareLocation: profileSetting.shareLocation ?? true,
           }
         : null,
-      recentData: {
-        upcomingMedication: upcomingMedication
-          ? {
-              ...upcomingMedication,
-              status: "due",
-            }
-          : null,
-        upcomingCheckin: upcomingCheckinSummary.upcomingCheckin,
-        nearestPassedCheckin: upcomingCheckinSummary.nearestPassedCheckin,
-        upcomingAppointment:
-          upcomingAppointment ||
-          dashboardAppointments?.upcomingAppointment ||
-          null,
-        sosStatus: null,
-      },
-      medicationDuesCount: medications.filter(
-        (medication) => medication?.status !== "taken",
-      ).length,
+      recentData,
+      medicationDuesCount,
       // medications,
       // contacts: contacts.map((item) => ({
       //   id: item._id,

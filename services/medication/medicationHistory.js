@@ -3,7 +3,8 @@ const MedicationHistory = require("../../models/medicationHistory");
 const { CustomError } = require("../../utils/error");
 const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
-  getUtcDateTimeFromStoredTime,
+  getUtcDateTimeFromDateAndTime,
+  getUtcDateTimeForTodayCheckin,
   getUtcStartOfDay,
   getUtcEndOfDayExclusive,
   getUtcWeekDayName,
@@ -12,24 +13,9 @@ const {
 
 const DUE_ACTIONS = ["taken", "skipped", "remind_later"];
 const ALLOWED_STATUSES = new Set(["taken", "skipped", "remind_later"]);
-
-const isWithinDateWindow = (medication, now = new Date()) => {
-  if (medication.startDate && medication.startDate > now) {
-    return false;
-  }
-
-  if (!medication.endDate) {
-    return true;
-  }
-
-  return getUtcStartOfDay(medication.endDate) >= getUtcStartOfDay(now);
-};
+const DATE_BASED_FREQUENCIES = new Set(["once", "custom_dates"]);
 
 const isMedicationApplicableForToday = (medication, now = new Date()) => {
-  if (!isWithinDateWindow(medication, now)) {
-    return false;
-  }
-
   if (medication.frequency === "weekly") {
     const selectedDays = Array.isArray(medication.days) ? medication.days : [];
     return selectedDays.includes(getUtcWeekDayName(now));
@@ -56,8 +42,115 @@ const isMedicationApplicableForToday = (medication, now = new Date()) => {
   return medication.frequency === "daily";
 };
 
-const deriveTemporalStatus = (medicationTime, now = new Date()) => {
-  const reminderAt = getUtcDateTimeFromStoredTime(medicationTime, now);
+const getMedicationTimeOnToday = (medication, now = new Date()) => {
+  if (!medication?.time) {
+    return null;
+  }
+
+  return getUtcDateTimeForTodayCheckin(medication.time, now);
+};
+
+const getMedicationUpcomingDateTime = (medication, now = new Date()) => {
+  if (!medication) {
+    return null;
+  }
+
+  const frequency = medication.frequency;
+
+  if (DATE_BASED_FREQUENCIES.has(frequency)) {
+    const selectedDates = Array.isArray(medication.dates) ? medication.dates : [];
+    let nearestDateTime = null;
+
+    for (const dateValue of selectedDates) {
+      const dateTime = getUtcDateTimeFromDateAndTime(dateValue, medication.time);
+      if (!dateTime || dateTime <= now) {
+        continue;
+      }
+
+      if (!nearestDateTime || dateTime < nearestDateTime) {
+        nearestDateTime = dateTime;
+      }
+    }
+
+    return nearestDateTime;
+  }
+
+  if (frequency === "weekly") {
+    const selectedDays = Array.isArray(medication.days) ? medication.days : [];
+    if (!selectedDays.includes(getUtcWeekDayName(now))) {
+      return null;
+    }
+  }
+
+  if (frequency === "daily" || frequency === "weekly") {
+    return getMedicationTimeOnToday(medication, now);
+  }
+
+  return getMedicationTimeOnToday(medication, now);
+};
+
+const getMedicationReminderDateTime = (medication, now = new Date()) => {
+  if (!medication) {
+    return null;
+  }
+
+  const frequency = medication.frequency;
+
+  if (DATE_BASED_FREQUENCIES.has(frequency)) {
+    const selectedDates = Array.isArray(medication.dates) ? medication.dates : [];
+
+    for (const dateValue of selectedDates) {
+      const parsedDate = new Date(dateValue);
+      if (Number.isNaN(parsedDate.getTime()) || !isSameUtcDay(parsedDate, now)) {
+        continue;
+      }
+
+      return getUtcDateTimeFromDateAndTime(dateValue, medication.time);
+    }
+
+    return null;
+  }
+
+  if (frequency === "weekly") {
+    const selectedDays = Array.isArray(medication.days) ? medication.days : [];
+    if (!selectedDays.includes(getUtcWeekDayName(now))) {
+      return null;
+    }
+  }
+
+  return getMedicationTimeOnToday(medication, now);
+};
+
+const isMedicationCompletedForToday = (medication) => {
+  const status = medication?.status;
+  return status === "taken" || status === "skipped";
+};
+
+const pickNearestUpcomingMedication = (medications = [], now = new Date()) => {
+  let nearest = null;
+  let nearestDateTime = null;
+
+  for (const medication of medications) {
+    if (isMedicationCompletedForToday(medication)) {
+      continue;
+    }
+
+    const dateTime = getMedicationUpcomingDateTime(medication, now);
+    if (!dateTime || dateTime <= now) {
+      continue;
+    }
+
+    if (!nearestDateTime || dateTime < nearestDateTime) {
+      nearest = medication;
+      nearestDateTime = dateTime;
+    }
+  }
+
+  return nearest;
+};
+
+const deriveTemporalStatus = (medication, now = new Date()) => {
+  const reminderAt = getMedicationReminderDateTime(medication, now);
 
   if (!reminderAt) {
     return "due";
@@ -132,7 +225,7 @@ const getTodayMedicationResponse = async (userId) => {
   return todayMedications.map((medication) => {
     const history = historyByMedicationId.get(String(medication._id));
 
-    let finalStatus = deriveTemporalStatus(medication.time, now);
+    let finalStatus = deriveTemporalStatus(medication, now);
 
     if (history?.status === "taken" || history?.status === "skipped") {
       finalStatus = history.status;
@@ -251,4 +344,6 @@ const updateMedicationStatusService = async ({
 module.exports = {
   getTodayMedicationResponse,
   updateMedicationStatusService,
+  getMedicationUpcomingDateTime,
+  pickNearestUpcomingMedication,
 };

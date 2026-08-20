@@ -10,9 +10,10 @@ const {
 } = require("../checkin/checkinHistory");
 const { buildMemberResponse } = require("./addMember");
 const {
-  getUtcDateTimeFromStoredTime,
-  getUtcDateTimeFromDateAndTime,
-} = require("../../utils/utcDateTime");
+  getTodayMedicationResponse,
+  pickNearestUpcomingMedication,
+} = require("../medication/medicationHistory");
+const { getUtcDateTimeFromDateAndTime } = require("../../utils/utcDateTime");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -21,27 +22,6 @@ const buildFamilyName = async (familyId) => {
 
   const family = await Family.findById(familyId).select("name");
   return family?.name || "";
-};
-
-const pickNearestUpcomingByTime = (
-  items = [],
-  timeAccessor,
-  now = new Date(),
-) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const item of items) {
-    const dateTime = getUtcDateTimeFromStoredTime(timeAccessor(item), now);
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = item;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
 };
 
 const pickNearestUpcomingAppointment = (
@@ -124,9 +104,22 @@ const buildMembersListResponse = async (
       checkins: await getTodayCheckinResponse(memberId),
     })),
   );
+  const todayMedicationsEntries = await Promise.all(
+    memberIds.map(async (memberId) => ({
+      userId: String(memberId),
+      medications: await getTodayMedicationResponse(memberId),
+    })),
+  );
   const todayCheckinsByUserId = todayCheckinsEntries.reduce(
     (accumulator, entry) => {
       accumulator.set(entry.userId, entry.checkins);
+      return accumulator;
+    },
+    new Map(),
+  );
+  const todayMedicationsByUserId = todayMedicationsEntries.reduce(
+    (accumulator, entry) => {
+      accumulator.set(entry.userId, entry.medications);
       return accumulator;
     },
     new Map(),
@@ -155,6 +148,8 @@ const buildMembersListResponse = async (
     } = memberResponse;
 
     const todayCheckins = todayCheckinsByUserId.get(String(member._id)) || [];
+    const todayMedications =
+      todayMedicationsByUserId.get(String(member._id)) || [];
     const checkinSummary = buildCheckinSummary(todayCheckins, now);
 
     return {
@@ -163,14 +158,8 @@ const buildMembersListResponse = async (
         ? { medicationCount: memberMedications.length }
         : {}),
       recentData: {
-        upcomingMedication: (() => {
-          const item = pickNearestUpcomingByTime(
-            memberResponse.medications,
-            (medication) => medication.time,
-            now,
-          );
-          return item ? { ...item, status: "due" } : null;
-        })(),
+        upcomingMedication:
+          pickNearestUpcomingMedication(todayMedications, now) || null,
         upcomingCheckin: checkinSummary.upcomingCheckin,
         nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
         upcomingAppointment: pickNearestUpcomingAppointment(

@@ -1,5 +1,6 @@
 const {
   getTodayMedicationResponse,
+  pickNearestUpcomingMedication,
 } = require("../medication/medicationHistory");
 const {
   getTodayCheckinResponse,
@@ -8,31 +9,7 @@ const {
 const {
   getDashboardAppointments,
 } = require("../appointment/dashboardAppointments");
-const {
-  getUtcDateTimeFromStoredTime,
-  getUtcDateTimeFromDateAndTime,
-} = require("../../utils/utcDateTime");
-
-const pickNearestUpcomingByTime = (
-  items = [],
-  timeAccessor,
-  now = new Date(),
-) => {
-  let nearest = null;
-  let nearestDateTime = null;
-
-  for (const item of items) {
-    const dateTime = getUtcDateTimeFromStoredTime(timeAccessor(item), now);
-    if (!dateTime || dateTime <= now) continue;
-
-    if (!nearestDateTime || dateTime < nearestDateTime) {
-      nearest = item;
-      nearestDateTime = dateTime;
-    }
-  }
-
-  return nearest;
-};
+const { getUtcDateTimeFromDateAndTime } = require("../../utils/utcDateTime");
 
 const pickNearestUpcomingAppointment = (
   appointments = [],
@@ -72,11 +49,7 @@ const buildParentRecentData = async (userId) => {
   ]);
 
   const now = new Date();
-  const upcomingMedication = pickNearestUpcomingByTime(
-    medications,
-    (medication) => medication?.time,
-    now,
-  );
+  const upcomingMedication = pickNearestUpcomingMedication(medications, now);
   const checkinSummary = buildCheckinSummary(todayCheckins, now);
   const upcomingAppointment = pickNearestUpcomingAppointment(
     dashboardAppointments?.appointments || [],
@@ -85,12 +58,7 @@ const buildParentRecentData = async (userId) => {
 
   return {
     recentData: {
-      upcomingMedication: upcomingMedication
-        ? {
-            ...upcomingMedication,
-            status: "due",
-          }
-        : null,
+      upcomingMedication: upcomingMedication || null,
       upcomingCheckin: checkinSummary.upcomingCheckin,
       nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
       upcomingAppointment:
