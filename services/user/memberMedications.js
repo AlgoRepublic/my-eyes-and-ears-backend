@@ -11,6 +11,7 @@ const {
   ensureParentUserAccessOrThrow,
 } = require("./memberAccess");
 const { parseDateInputToUtc } = require("../../utils/utcDateTime");
+const { syncMedicationNotifications } = require("../notification/sync");
 
 const mapMedication = (item) => ({
   id: item._id,
@@ -69,6 +70,8 @@ const createMemberMedicationService = async (
     time: payload.time ? String(payload.time).trim() : null,
     isActive: payload.isActive !== undefined ? Boolean(payload.isActive) : true,
   });
+
+  syncMedicationNotifications(medication._id);
 
   return {
     medication: mapMedication(medication),
@@ -150,6 +153,8 @@ const updateMemberMedicationService = async (
 
   await medication.save();
 
+  syncMedicationNotifications(medication._id);
+
   return {
     medication: mapMedication(medication),
   };
@@ -174,6 +179,12 @@ const deleteMemberMedicationService = async (
   if (!deleted) {
     throw new CustomError("Medication not found", [], 404);
   }
+
+  const { cancelFutureNotifications } = require("../notification/notification.service");
+  cancelFutureNotifications({
+    type: "medication",
+    referenceId: deleted._id,
+  });
 
   await MedicationHistory.deleteMany({ medicationId: deleted._id });
 

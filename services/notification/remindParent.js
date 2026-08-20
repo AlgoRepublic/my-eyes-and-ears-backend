@@ -1,3 +1,5 @@
+const { createImmediateNotification } = require("./notification.service");
+
 const buildDefaultReminderContent = ({
   caregiverName,
   type,
@@ -38,6 +40,34 @@ const buildDefaultReminderContent = ({
   };
 };
 
+const mapNotificationType = (type) => {
+  if (type === "appointment") {
+    return "appointment";
+  }
+
+  if (type === "medication") {
+    return "medication";
+  }
+
+  return "checkinReminder";
+};
+
+const resolveReference = ({ type, appointment, medication, checkin, parentUser }) => {
+  if (type === "appointment" && appointment) {
+    return appointment._id;
+  }
+
+  if (type === "medication" && medication) {
+    return medication._id;
+  }
+
+  if (type === "checkin" && checkin) {
+    return checkin._id;
+  }
+
+  return parentUser._id;
+};
+
 const sendRemindParentNotification = async ({
   parentUser,
   caregiverUser,
@@ -56,10 +86,36 @@ const sendRemindParentNotification = async ({
     checkin,
   });
 
-  // FCM delivery will be wired here later.
+  const title = payload.title || defaults.title;
+  const body = payload.message || defaults.message;
+  const referenceId = resolveReference({
+    type,
+    appointment,
+    medication,
+    checkin,
+    parentUser,
+  });
+
+  const notification = await createImmediateNotification({
+    userId: parentUser._id,
+    type: mapNotificationType(type),
+    referenceId,
+    title,
+    body,
+    data: {
+      type,
+      referenceId: String(referenceId),
+      caregiverUserId: String(caregiverUser._id),
+      appointmentId: appointment ? String(appointment._id) : null,
+      medicationId: medication ? String(medication._id) : null,
+      checkinId: checkin ? String(checkin._id) : null,
+    },
+  });
+
   return {
-    delivered: false,
+    delivered: true,
     channel: "fcm",
+    notificationId: String(notification._id),
     parentUserId: parentUser._id,
     caregiverUserId: caregiverUser._id,
     appointmentId: appointment ? appointment._id : null,
@@ -90,8 +146,8 @@ const sendRemindParentNotification = async ({
           label: checkin.label,
         }
       : null,
-    title: payload.title || defaults.title,
-    message: payload.message || defaults.message,
+    title,
+    message: body,
     type,
     sentAt: new Date(),
   };
