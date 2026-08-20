@@ -1,6 +1,7 @@
 const Medication = require("../../models/medication");
 const MedicationHistory = require("../../models/medicationHistory");
 const { CustomError } = require("../../utils/error");
+const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
   getUtcDateTimeFromStoredTime,
   getUtcStartOfDay,
@@ -149,6 +150,7 @@ const getTodayMedicationResponse = async (userId) => {
 };
 
 const updateMedicationStatusService = async ({
+  currentUser,
   userId,
   medicationId,
   status,
@@ -161,6 +163,8 @@ const updateMedicationStatusService = async ({
   if (!medicationId || !status) {
     throw new CustomError("medicationId and status are required", [], 400);
   }
+
+  const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
 
   const normalizedStatus = String(status).trim().toLowerCase();
   if (!ALLOWED_STATUSES.has(normalizedStatus)) {
@@ -181,7 +185,7 @@ const updateMedicationStatusService = async ({
 
   const medication = await Medication.findOne({
     _id: medicationId,
-    userId,
+    userId: parentUser._id,
     isActive: true,
   }).select("_id userId");
 
