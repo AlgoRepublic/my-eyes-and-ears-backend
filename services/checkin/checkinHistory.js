@@ -41,13 +41,14 @@ const sortByCheckinTimeAsc = (left, right, now = new Date()) => {
   return leftDateTime.getTime() - rightDateTime.getTime();
 };
 
-const mapCheckinResponse = (checkinReminder, status) => ({
+const mapCheckinResponse = (checkinReminder, status, remindAt = null) => ({
   id: checkinReminder._id,
   userId: checkinReminder.userId,
   time: checkinReminder.time,
   label: checkinReminder.label,
   isEnabled: checkinReminder.isEnabled,
   status,
+  remindAt,
   actions: getActionsByStatus(status),
 });
 
@@ -101,7 +102,11 @@ const getTodayCheckinResponse = async (userId) => {
       }
     }
 
-    return mapCheckinResponse(checkinReminder, finalStatus);
+    return mapCheckinResponse(
+      checkinReminder,
+      finalStatus,
+      history?.remindAt ?? null,
+    );
   });
 };
 
