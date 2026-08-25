@@ -10,6 +10,8 @@ const getMembers = require("../controllers/api/v1/users/getMembers");
 const getMemberDetail = require("../controllers/api/v1/users/getMemberDetail");
 const {
   getTodayCheckins,
+  getCheckinsWithHistory,
+  getMemberCheckinsWithHistory,
   getMemberCheckins,
   createMemberCheckin,
   updateMemberCheckin,
@@ -57,6 +59,8 @@ router.get("/getMemberDetail/:userId", getMemberDetail);
 router.patch("/members/:userId", updateMember);
 // ==================checkins start==================
 router.get("/checkins/today", getTodayCheckins);
+router.get("/checkins/history", getCheckinsWithHistory);
+router.get("/members/:userId/checkins/history", getMemberCheckinsWithHistory);
 router.get("/members/:userId/checkins", getMemberCheckins);
 router.post("/members/:userId/checkins", createMemberCheckin);
 router.patch("/members/:userId/checkins/:checkinId", updateMemberCheckin);

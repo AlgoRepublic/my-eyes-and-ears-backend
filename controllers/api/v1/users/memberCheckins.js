@@ -2,6 +2,8 @@ const { asyncMiddleware } = require("../../../../middlewares/async");
 const {
   getMemberCheckinsService,
   getTodayCheckinsService,
+  getCheckinsWithHistoryService,
+  getMemberCheckinsWithHistoryService,
   createMemberCheckinService,
   updateMemberCheckinService,
   deleteMemberCheckinService,
@@ -25,6 +27,32 @@ const getTodayCheckins = asyncMiddleware(async (req, res, next) => {
   next({
     success: true,
     message: "Today's checkins fetched successfully",
+    statusCode: 200,
+    data,
+  });
+});
+
+const getCheckinsWithHistory = asyncMiddleware(async (req, res, next) => {
+  const userId = req.query.userId || req.body?.userId;
+  const data = await getCheckinsWithHistoryService(req.user, userId);
+
+  next({
+    success: true,
+    message: "Checkins with history fetched successfully",
+    statusCode: 200,
+    data,
+  });
+});
+
+const getMemberCheckinsWithHistory = asyncMiddleware(async (req, res, next) => {
+  const data = await getMemberCheckinsWithHistoryService(
+    req.user,
+    req.params.userId,
+  );
+
+  next({
+    success: true,
+    message: "Checkins with history fetched successfully",
     statusCode: 200,
     data,
   });
@@ -78,6 +106,8 @@ const deleteMemberCheckin = asyncMiddleware(async (req, res, next) => {
 
 module.exports = {
   getTodayCheckins,
+  getCheckinsWithHistory,
+  getMemberCheckinsWithHistory,
   getMemberCheckins,
   createMemberCheckin,
   updateMemberCheckin,
