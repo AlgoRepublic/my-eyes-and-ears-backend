@@ -290,12 +290,11 @@ const getTodayCheckinResponse = async (userId) => {
       .lean(),
   ]);
 
-    return mapCheckinResponse(
-      checkinReminder,
-      finalStatus,
-      history?.remindAt ?? null,
-    );
-  });
+  return mapCheckinResponse(
+    checkinReminder,
+    finalStatus,
+    history?.remindAt ?? null,
+  );
 };
 
 const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
