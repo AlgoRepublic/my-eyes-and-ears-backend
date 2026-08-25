@@ -8,6 +8,7 @@ const {
 } = require("./memberAccess");
 const {
   getTodayCheckinResponse,
+  getCheckinsWithHistoryResponse,
   buildCheckinSummary,
 } = require("../checkin/checkinHistory");
 const { syncCheckinNotifications } = require("../notification/sync");
@@ -142,9 +143,27 @@ const getTodayCheckinsService = async (currentUser, userId) => {
   };
 };
 
+const getCheckinsWithHistoryService = async (currentUser, userId) => {
+  if (!userId) {
+    throw new CustomError("userId is required", [], 400);
+  }
+
+  const parentUser = await ensureParentUserAccessOrThrow(currentUser, userId);
+
+  return getCheckinsWithHistoryResponse(parentUser._id);
+};
+
+const getMemberCheckinsWithHistoryService = async (currentUser, memberId) => {
+  const parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
+
+  return getCheckinsWithHistoryResponse(parentUser._id);
+};
+
 module.exports = {
   getMemberCheckinsService,
   getTodayCheckinsService,
+  getCheckinsWithHistoryService,
+  getMemberCheckinsWithHistoryService,
   createMemberCheckinService,
   updateMemberCheckinService,
   deleteMemberCheckinService,
