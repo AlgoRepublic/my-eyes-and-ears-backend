@@ -9,7 +9,6 @@ const {
   isSameUtcDay,
 } = require("../../utils/utcDateTime");
 
-const DUE_ACTIONS = ["completed", "skipped", "remind_later"];
 const ALLOWED_STATUSES = new Set(["completed", "skipped", "remind_later"]);
 
 const deriveTemporalStatus = (checkinTime, now = new Date()) => {
@@ -20,14 +19,6 @@ const deriveTemporalStatus = (checkinTime, now = new Date()) => {
   }
 
   return now > reminderAt ? "overdue" : "due";
-};
-
-const getActionsByStatus = (status) => {
-  if (status === "due" || status === "overdue" || status === "remind_later") {
-    return DUE_ACTIONS;
-  }
-
-  return [];
 };
 
 const sortByCheckinTimeAsc = (left, right, now = new Date()) => {
@@ -52,6 +43,234 @@ const mapCheckinResponse = (checkinReminder, status, remindAt = null) => ({
   actions: getActionsByStatus(status),
 });
 
+const getScheduledCheckinDateTime = (
+  checkinReminder,
+  referenceDate = new Date(),
+) => {
+  return getUtcDateTimeForTodayCheckin(checkinReminder?.time, referenceDate);
+};
+
+const resolveCheckinTimestamps = ({ status, history, scheduledAt }) => {
+  if (status === "completed") {
+    return {
+      completedAt: history?.completedAt ?? null,
+      missedAt: null,
+    };
+  }
+
+  if (status === "skipped" || status === "overdue" || status === "missed") {
+    return {
+      completedAt: null,
+      missedAt: history?.skippedAt ?? scheduledAt ?? null,
+    };
+  }
+
+  return {
+    completedAt: null,
+    missedAt: null,
+  };
+};
+
+const resolveTodayCheckinStatus = (
+  checkinReminder,
+  history,
+  now = new Date(),
+) => {
+  let finalStatus = deriveTemporalStatus(checkinReminder.time, now);
+
+  if (history?.status === "completed" || history?.status === "skipped") {
+    finalStatus = history.status;
+  } else if (history?.status === "remind_later") {
+    const remindAt = history.remindAt ? new Date(history.remindAt) : null;
+    if (remindAt && !Number.isNaN(remindAt.getTime()) && now > remindAt) {
+      finalStatus = "overdue";
+    } else {
+      finalStatus = "remind_later";
+    }
+  }
+
+  return finalStatus;
+};
+
+const buildCheckinsForDate = ({
+  checkinReminders,
+  historiesForDate = [],
+  referenceDate,
+  now = new Date(),
+}) => {
+  const dayStart = getUtcStartOfDay(referenceDate);
+  const todayStart = getUtcStartOfDay(now);
+  const isPastDay = dayStart.getTime() < todayStart.getTime();
+
+  const historyByCheckinId = historiesForDate.reduce(
+    (accumulator, historyItem) => {
+      const checkinReminderId = String(historyItem.checkinReminderId);
+      if (!accumulator.has(checkinReminderId)) {
+        accumulator.set(checkinReminderId, historyItem);
+      }
+      return accumulator;
+    },
+    new Map(),
+  );
+
+  const sortedCheckins = [...checkinReminders].sort((left, right) =>
+    sortByCheckinTimeAsc(left, right, referenceDate),
+  );
+
+  return sortedCheckins.map((checkinReminder) => {
+    const history = historyByCheckinId.get(String(checkinReminder._id));
+    const scheduledAt = getScheduledCheckinDateTime(
+      checkinReminder,
+      referenceDate,
+    );
+
+    if (isPastDay) {
+      const status = history?.status === "completed" ? "completed" : "missed";
+      const timestamps = resolveCheckinTimestamps({
+        status,
+        history,
+        scheduledAt,
+      });
+
+      return mapCheckinResponse({
+        checkinReminder,
+        status,
+        remindAt: null,
+        completedAt: timestamps.completedAt,
+        missedAt: timestamps.missedAt,
+      });
+    }
+
+    const finalStatus = resolveTodayCheckinStatus(
+      checkinReminder,
+      history,
+      now,
+    );
+    const timestamps = resolveCheckinTimestamps({
+      status: finalStatus,
+      history,
+      scheduledAt,
+    });
+
+    return mapCheckinResponse({
+      checkinReminder,
+      status: finalStatus,
+      remindAt: history?.remindAt ?? null,
+      completedAt: timestamps.completedAt,
+      missedAt: timestamps.missedAt,
+    });
+  });
+};
+
+const deriveStreakStatus = (checkins = []) => {
+  if (checkins.length === 0) {
+    return "completed";
+  }
+
+  return checkins.every((checkin) => checkin.status === "completed")
+    ? "completed"
+    : "missed";
+};
+
+const buildPastCheckinHistory = ({
+  checkinReminders,
+  histories = [],
+  now = new Date(),
+  days = 7,
+}) => {
+  const todayStart = getUtcStartOfDay(now);
+  const historiesByDate = histories.reduce((accumulator, historyItem) => {
+    const dateKey = getUtcStartOfDay(historyItem.date).getTime();
+    if (!accumulator.has(dateKey)) {
+      accumulator.set(dateKey, []);
+    }
+    accumulator.get(dateKey).push(historyItem);
+    return accumulator;
+  }, new Map());
+
+  const checkInHistory = [];
+
+  for (let dayOffset = 1; dayOffset <= days; dayOffset += 1) {
+    const referenceDate = new Date(
+      Date.UTC(
+        todayStart.getUTCFullYear(),
+        todayStart.getUTCMonth(),
+        todayStart.getUTCDate() - dayOffset,
+      ),
+    );
+    const dateKey = referenceDate.getTime();
+    const checkins = buildCheckinsForDate({
+      checkinReminders,
+      historiesForDate: historiesByDate.get(dateKey) || [],
+      referenceDate,
+      now,
+    });
+
+    checkInHistory.push({
+      date: referenceDate,
+      streakStatus: deriveStreakStatus(checkins),
+      checkIns: checkins,
+    });
+  }
+
+  return checkInHistory;
+};
+
+const getCheckinsWithHistoryResponse = async (userId) => {
+  if (!userId) {
+    throw new CustomError("userId is required", [], 400);
+  }
+
+  const now = new Date();
+  const todayStart = getUtcStartOfDay(now);
+  const todayEndExclusive = getUtcEndOfDayExclusive(now);
+  const historyStart = new Date(
+    Date.UTC(
+      todayStart.getUTCFullYear(),
+      todayStart.getUTCMonth(),
+      todayStart.getUTCDate() - 7,
+    ),
+  );
+
+  const [checkinReminders, histories] = await Promise.all([
+    CheckinReminder.find({ userId, isEnabled: true }).sort({ createdAt: 1 }),
+    CheckinHistory.find({
+      userId,
+      date: { $gte: historyStart, $lt: todayEndExclusive },
+    })
+      .select("checkinReminderId status remindAt completedAt skippedAt date")
+      .lean(),
+  ]);
+
+  const todayHistories = histories.filter(
+    (historyItem) =>
+      historyItem.date >= todayStart && historyItem.date < todayEndExclusive,
+  );
+  const pastHistories = histories.filter(
+    (historyItem) =>
+      historyItem.date >= historyStart && historyItem.date < todayStart,
+  );
+
+  const checkins = buildCheckinsForDate({
+    checkinReminders,
+    historiesForDate: todayHistories,
+    referenceDate: now,
+    now,
+  });
+  const checkInHistory = buildPastCheckinHistory({
+    checkinReminders,
+    histories: pastHistories,
+    now,
+    days: 7,
+  });
+
+  return {
+    checkins,
+    ...buildCheckinSummary(checkins, now),
+    checkInHistory,
+  };
+};
+
 const getTodayCheckinResponse = async (userId) => {
   if (!userId) {
     throw new CustomError("userId is required", [], 400);
@@ -67,40 +286,9 @@ const getTodayCheckinResponse = async (userId) => {
       userId,
       date: { $gte: dayStart, $lt: dayEndExclusive },
     })
-      .select("checkinReminderId status remindAt")
+      .select("checkinReminderId status remindAt completedAt skippedAt")
       .lean(),
   ]);
-
-  const historyByCheckinId = todayHistories.reduce((accumulator, historyItem) => {
-    const checkinReminderId = String(historyItem.checkinReminderId);
-    if (!accumulator.has(checkinReminderId)) {
-      accumulator.set(checkinReminderId, {
-        status: historyItem.status,
-        remindAt: historyItem.remindAt,
-      });
-    }
-    return accumulator;
-  }, new Map());
-
-  const sortedCheckins = [...checkinReminders].sort((left, right) =>
-    sortByCheckinTimeAsc(left, right, now),
-  );
-
-  return sortedCheckins.map((checkinReminder) => {
-    const history = historyByCheckinId.get(String(checkinReminder._id));
-
-    let finalStatus = deriveTemporalStatus(checkinReminder.time, now);
-
-    if (history?.status === "completed" || history?.status === "skipped") {
-      finalStatus = history.status;
-    } else if (history?.status === "remind_later") {
-      const remindAt = history.remindAt ? new Date(history.remindAt) : null;
-      if (remindAt && !Number.isNaN(remindAt.getTime()) && now > remindAt) {
-        finalStatus = "overdue";
-      } else {
-        finalStatus = "remind_later";
-      }
-    }
 
     return mapCheckinResponse(
       checkinReminder,
@@ -256,12 +444,12 @@ const updateCheckinStatusService = async ({
     completedAt: history.completedAt,
     skippedAt: history.skippedAt,
     remindAt: history.remindAt,
-    actions: [],
   };
 };
 
 module.exports = {
   getTodayCheckinResponse,
+  getCheckinsWithHistoryResponse,
   updateCheckinStatusService,
   sortByCheckinTimeAsc,
   pickNearestUpcomingCheckin,
