@@ -290,11 +290,17 @@ const getTodayCheckinResponse = async (userId) => {
       .lean(),
   ]);
 
-  return mapCheckinResponse(
-    checkinReminder,
-    finalStatus,
-    history?.remindAt ?? null,
-  );
+  const checkins = buildCheckinsForDate({
+    checkinReminders,
+    historiesForDate: todayHistories,
+    referenceDate: now,
+    now,
+  });
+  const summary = buildCheckinSummary(checkins, now);
+  return {
+    checkins,
+    ...summary,
+  };
 };
 
 const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
