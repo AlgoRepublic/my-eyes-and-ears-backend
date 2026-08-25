@@ -32,7 +32,13 @@ const sortByCheckinTimeAsc = (left, right, now = new Date()) => {
   return leftDateTime.getTime() - rightDateTime.getTime();
 };
 
-const mapCheckinResponse = (checkinReminder, status, remindAt = null) => ({
+const mapCheckinResponse = ({
+  checkinReminder,
+  status,
+  remindAt = null,
+  completedAt = null,
+  missedAt = null,
+}) => ({
   id: checkinReminder._id,
   userId: checkinReminder.userId,
   time: checkinReminder.time,
@@ -40,7 +46,8 @@ const mapCheckinResponse = (checkinReminder, status, remindAt = null) => ({
   isEnabled: checkinReminder.isEnabled,
   status,
   remindAt,
-  actions: getActionsByStatus(status),
+  completedAt,
+  missedAt,
 });
 
 const getScheduledCheckinDateTime = (
@@ -290,17 +297,12 @@ const getTodayCheckinResponse = async (userId) => {
       .lean(),
   ]);
 
-  const checkins = buildCheckinsForDate({
+  return buildCheckinsForDate({
     checkinReminders,
     historiesForDate: todayHistories,
     referenceDate: now,
     now,
   });
-  const summary = buildCheckinSummary(checkins, now);
-  return {
-    checkins,
-    ...summary,
-  };
 };
 
 const pickNearestUpcomingCheckin = (checkins = [], now = new Date()) => {
