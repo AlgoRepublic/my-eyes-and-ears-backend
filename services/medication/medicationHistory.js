@@ -55,6 +55,13 @@ const getMedicationUpcomingDateTime = (medication, now = new Date()) => {
     return null;
   }
 
+  if (medication.status === "remind_later" && medication.remindAt) {
+    const remindAt = new Date(medication.remindAt);
+    if (!Number.isNaN(remindAt.getTime()) && remindAt > now) {
+      return remindAt;
+    }
+  }
+
   const frequency = medication.frequency;
 
   if (DATE_BASED_FREQUENCIES.has(frequency)) {
@@ -167,7 +174,7 @@ const getActionsByStatus = (status) => {
   return [];
 };
 
-const mapMedicationResponse = (medication, status) => {
+const mapMedicationResponse = (medication, status, remindAt = null) => {
   return {
     id: medication._id,
     name: medication.name,
@@ -179,7 +186,7 @@ const mapMedicationResponse = (medication, status) => {
     endDate: medication.endDate,
     notes: medication.notes,
     time: medication.time,
-    remindAt: medication.remindAt,
+    remindAt,
     status,
     actions: getActionsByStatus(status),
   };
@@ -238,7 +245,11 @@ const getTodayMedicationResponse = async (userId) => {
       }
     }
 
-    return mapMedicationResponse(medication, finalStatus);
+    return mapMedicationResponse(
+      medication,
+      finalStatus,
+      history?.remindAt ?? null,
+    );
   });
 };
 
