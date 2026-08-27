@@ -38,6 +38,12 @@ const checkinHistorySchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    changedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,

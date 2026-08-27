@@ -1,5 +1,6 @@
 const CheckinReminder = require("../../models/checkinReminder");
 const CheckinHistory = require("../../models/checkinHistory");
+const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
 const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
@@ -10,6 +11,52 @@ const {
 } = require("../../utils/utcDateTime");
 
 const ALLOWED_STATUSES = new Set(["completed", "skipped", "remind_later"]);
+
+const mapChangedByUser = (user) => {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user._id || user.id,
+    name: user.name,
+    role: user.role,
+    email: user.email ?? null,
+  };
+};
+
+const loadChangedByUsersMap = async (histories = []) => {
+  const userIds = [
+    ...new Set(
+      histories
+        .map((historyItem) =>
+          historyItem?.changedBy ? String(historyItem.changedBy) : null,
+        )
+        .filter(Boolean),
+    ),
+  ];
+
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const users = await User.find({ _id: { $in: userIds } })
+    .select("name role email")
+    .lean();
+
+  return users.reduce((accumulator, user) => {
+    accumulator.set(String(user._id), user);
+    return accumulator;
+  }, new Map());
+};
+
+const resolveChangedBy = (history, changedByUsersMap = new Map()) => {
+  if (!history?.changedBy) {
+    return null;
+  }
+
+  return mapChangedByUser(changedByUsersMap.get(String(history.changedBy)));
+};
 
 const deriveTemporalStatus = (checkinTime, now = new Date()) => {
   const reminderAt = getUtcDateTimeForTodayCheckin(checkinTime, now);
@@ -38,6 +85,7 @@ const mapCheckinResponse = ({
   remindAt = null,
   completedAt = null,
   missedAt = null,
+  changedBy = null,
 }) => ({
   id: checkinReminder._id,
   userId: checkinReminder.userId,
@@ -48,6 +96,7 @@ const mapCheckinResponse = ({
   remindAt,
   completedAt,
   missedAt,
+  changedBy,
 });
 
 const getScheduledCheckinDateTime = (
@@ -104,6 +153,7 @@ const buildCheckinsForDate = ({
   historiesForDate = [],
   referenceDate,
   now = new Date(),
+  changedByUsersMap = new Map(),
 }) => {
   const dayStart = getUtcStartOfDay(referenceDate);
   const todayStart = getUtcStartOfDay(now);
@@ -145,6 +195,7 @@ const buildCheckinsForDate = ({
         remindAt: null,
         completedAt: timestamps.completedAt,
         missedAt: timestamps.missedAt,
+        changedBy: resolveChangedBy(history, changedByUsersMap),
       });
     }
 
@@ -165,6 +216,7 @@ const buildCheckinsForDate = ({
       remindAt: history?.remindAt ?? null,
       completedAt: timestamps.completedAt,
       missedAt: timestamps.missedAt,
+      changedBy: resolveChangedBy(history, changedByUsersMap),
     });
   });
 };
@@ -184,6 +236,7 @@ const buildPastCheckinHistory = ({
   histories = [],
   now = new Date(),
   days = 7,
+  changedByUsersMap = new Map(),
 }) => {
   const todayStart = getUtcStartOfDay(now);
   const historiesByDate = histories.reduce((accumulator, historyItem) => {
@@ -211,6 +264,7 @@ const buildPastCheckinHistory = ({
       historiesForDate: historiesByDate.get(dateKey) || [],
       referenceDate,
       now,
+      changedByUsersMap,
     });
 
     checkInHistory.push({
@@ -245,9 +299,13 @@ const getCheckinsWithHistoryResponse = async (userId) => {
       userId,
       date: { $gte: historyStart, $lt: todayEndExclusive },
     })
-      .select("checkinReminderId status remindAt completedAt skippedAt date")
+      .select(
+        "checkinReminderId status remindAt completedAt skippedAt date changedBy",
+      )
       .lean(),
   ]);
+
+  const changedByUsersMap = await loadChangedByUsersMap(histories);
 
   const todayHistories = histories.filter(
     (historyItem) =>
@@ -263,12 +321,14 @@ const getCheckinsWithHistoryResponse = async (userId) => {
     historiesForDate: todayHistories,
     referenceDate: now,
     now,
+    changedByUsersMap,
   });
   const checkInHistory = buildPastCheckinHistory({
     checkinReminders,
     histories: pastHistories,
     now,
     days: 7,
+    changedByUsersMap,
   });
 
   return {
@@ -293,15 +353,18 @@ const getTodayCheckinResponse = async (userId) => {
       userId,
       date: { $gte: dayStart, $lt: dayEndExclusive },
     })
-      .select("checkinReminderId status remindAt completedAt skippedAt")
+      .select("checkinReminderId status remindAt completedAt skippedAt changedBy")
       .lean(),
   ]);
+
+  const changedByUsersMap = await loadChangedByUsersMap(todayHistories);
 
   return buildCheckinsForDate({
     checkinReminders,
     historiesForDate: todayHistories,
     referenceDate: now,
     now,
+    changedByUsersMap,
   });
 };
 
@@ -402,12 +465,18 @@ const updateCheckinStatusService = async ({
 
   const now = new Date();
   const dayStart = getUtcStartOfDay(now);
+  const changedById = currentUser?._id || currentUser?.id;
+
+  if (!changedById) {
+    throw new CustomError("Authenticated user is required", [], 401);
+  }
 
   const update = {
     status: normalizedStatus,
     completedAt: null,
     skippedAt: null,
     remindAt: null,
+    changedBy: changedById,
   };
 
   if (normalizedStatus === "completed") {
@@ -444,6 +513,10 @@ const updateCheckinStatusService = async ({
     },
   );
 
+  const changedByUser = await User.findById(changedById)
+    .select("name role email")
+    .lean();
+
   return {
     checkinId: history.checkinReminderId,
     date: history.date,
@@ -451,6 +524,7 @@ const updateCheckinStatusService = async ({
     completedAt: history.completedAt,
     skippedAt: history.skippedAt,
     remindAt: history.remindAt,
+    changedBy: mapChangedByUser(changedByUser),
   };
 };
 
