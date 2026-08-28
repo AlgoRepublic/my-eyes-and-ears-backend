@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
-const NOTIFICATION_TYPES = ["medication", "appointment", "checkinReminder"];
+const NOTIFICATION_TYPES = [
+  "medication",
+  "appointment",
+  "checkinReminder",
+  "chat",
+];
 const NOTIFICATION_STATUSES = [
   "pending",
   "queued",
