@@ -147,6 +147,146 @@ const buildFamilyConversationResponse = ({
   hasUnread: (participantRecord?.unreadCount ?? 0) > 0,
 });
 
+const buildPlaceholderIndividualConversation = (memberUser) => ({
+  conversationId: null,
+  type: "individual",
+  user: mapMinimalUser(memberUser),
+  lastMessage: null,
+  lastMessageAt: null,
+  unreadCount: 0,
+  hasUnread: false,
+});
+
+const getConversationSummariesForMembers = async (
+  currentUser,
+  memberUsers = [],
+) => {
+  const familyId = await resolveUserFamilyIdOrThrow(currentUser);
+  const currentUserId = getCurrentUserId(currentUser);
+  const normalizedMembers = Array.isArray(memberUsers) ? memberUsers : [];
+
+  const familyConversationDoc = await ensureFamilyConversation(
+    familyId,
+    currentUserId,
+  );
+  await syncFamilyConversationParticipants(familyConversationDoc);
+
+  const allUsers = await getFamilyMemberUsers(familyId);
+  const usersById = allUsers.reduce((accumulator, item) => {
+    accumulator.set(String(item._id), item);
+    return accumulator;
+  }, new Map());
+
+  const individualKeys = normalizedMembers.map((member) =>
+    buildIndividualConversationKey(familyId, currentUserId, member._id),
+  );
+
+  const individualConversations = individualKeys.length
+    ? await Conversation.find({
+        familyId,
+        type: "individual",
+        individualKey: { $in: individualKeys },
+      })
+    : [];
+
+  const conversationIds = [
+    familyConversationDoc._id,
+    ...individualConversations.map((item) => item._id),
+  ];
+
+  const [participantRecords, conversationsWithMessages] = await Promise.all([
+    ConversationParticipant.find({
+      userId: currentUserId,
+      conversationId: { $in: conversationIds },
+    }).select("conversationId unreadCount"),
+    Promise.all(
+      [familyConversationDoc, ...individualConversations].map(
+        async (conversation) => {
+          const lastMessage = conversation.lastMessageId
+            ? await Message.findById(conversation.lastMessageId)
+            : null;
+          return { conversation, lastMessage };
+        },
+      ),
+    ),
+  ]);
+
+  const participantByConversationId = participantRecords.reduce(
+    (accumulator, item) => {
+      accumulator.set(String(item.conversationId), item);
+      return accumulator;
+    },
+    new Map(),
+  );
+
+  const conversationDataById = conversationsWithMessages.reduce(
+    (accumulator, item) => {
+      accumulator.set(String(item.conversation._id), item);
+      return accumulator;
+    },
+    new Map(),
+  );
+
+  const familyConversationData = conversationDataById.get(
+    String(familyConversationDoc._id),
+  );
+
+  const familyConversation = buildFamilyConversationResponse({
+    conversation: familyConversationDoc,
+    participantRecord: participantByConversationId.get(
+      String(familyConversationDoc._id),
+    ),
+    lastMessage: familyConversationData?.lastMessage ?? null,
+    usersById,
+  });
+
+  const individualConversationByKey = individualConversations.reduce(
+    (accumulator, conversation) => {
+      accumulator.set(conversation.individualKey, conversation);
+      return accumulator;
+    },
+    new Map(),
+  );
+
+  const individualConversationsByMemberId = new Map();
+
+  for (const member of normalizedMembers) {
+    const individualKey = buildIndividualConversationKey(
+      familyId,
+      currentUserId,
+      member._id,
+    );
+    const conversation = individualConversationByKey.get(individualKey);
+
+    if (!conversation) {
+      individualConversationsByMemberId.set(
+        String(member._id),
+        buildPlaceholderIndividualConversation(member),
+      );
+      continue;
+    }
+
+    const conversationData = conversationDataById.get(String(conversation._id));
+    individualConversationsByMemberId.set(
+      String(member._id),
+      await buildIndividualConversationResponse({
+        conversation,
+        participantRecord: participantByConversationId.get(
+          String(conversation._id),
+        ),
+        currentUserId,
+        usersById,
+        lastMessage: conversationData?.lastMessage ?? null,
+      }),
+    );
+  }
+
+  return {
+    familyConversation,
+    individualConversationsByMemberId,
+  };
+};
+
 const listConversationsService = async (currentUser) => {
   const familyId = await resolveUserFamilyIdOrThrow(currentUser);
   const currentUserId = getCurrentUserId(currentUser);
@@ -385,5 +525,6 @@ module.exports = {
   getConversationDetailService,
   getOrCreateIndividualConversationService,
   getTotalUnreadCountService,
+  getConversationSummariesForMembers,
   getFamilyMemberUsers,
 };

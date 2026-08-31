@@ -14,11 +14,18 @@ const { getUtcStartOfDay } = require("../../utils/utcDateTime");
 const {
   formatUpcomingAppointments,
 } = require("../appointment/upcomingAppointments");
-const { getTodayCheckinResponse, buildCheckinSummary } = require("../checkin/checkinHistory");
+const {
+  getTodayCheckinResponse,
+  buildCheckinSummary,
+} = require("../checkin/checkinHistory");
 const {
   getTodayMedicationResponse,
   pickNearestUpcomingMedication,
 } = require("../medication/medicationHistory");
+const { buildParentRecentData } = require("./buildParentRecentData");
+const {
+  getConversationSummariesForMembers,
+} = require("../chat/conversations");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -89,6 +96,8 @@ const getMemberDetailService = async (currentUser, userId) => {
     appointments,
     todayCheckins,
     todayMedications,
+    { recentData, medicationDuesCount },
+    { familyConversation, individualConversationsByMemberId },
   ] = await Promise.all([
     ProfileSetting.findOne({ userId: parentUser._id }),
     Medication.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
@@ -101,6 +110,8 @@ const getMemberDetailService = async (currentUser, userId) => {
     }).sort({ createdAt: 1 }),
     getTodayCheckinResponse(parentUser._id),
     getTodayMedicationResponse(parentUser._id),
+    buildParentRecentData(parentUser._id),
+    getConversationSummariesForMembers(currentUser, [parentUser]),
   ]);
 
   const upcomingAppointments = formatUpcomingAppointments(appointments, now);
@@ -121,14 +132,11 @@ const getMemberDetailService = async (currentUser, userId) => {
   const member = {
     ...memberResponse,
     appointments: mapMemberAppointments(upcomingAppointments),
-    recentData: {
-      upcomingMedication:
-        pickNearestUpcomingMedication(todayMedications, now) || null,
-      upcomingCheckin: checkinSummary.upcomingCheckin,
-      nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
-      upcomingAppointment: upcomingAppointments[0] || null,
-      sosStatus: null,
-    },
+    recentData,
+    medicationDuesCount,
+    familyConversation,
+    individualConversation:
+      individualConversationsByMemberId.get(String(parentUser._id)) || null,
   };
 
   if (!member) {

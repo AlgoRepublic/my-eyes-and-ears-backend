@@ -4,6 +4,9 @@ const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { getCaregiverIdOrThrow } = require("./memberAccess");
 const { buildMembersListResponse } = require("./buildMembersListResponse");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  getConversationSummariesForMembers,
+} = require("../chat/conversations");
 
 const buildFamilyName = (family) => {
   return family?.name || "";
@@ -28,13 +31,24 @@ const getFamilyDetailsService = async (currentUser) => {
     includeMedicationCount: true,
   });
 
+  const { familyConversation, individualConversationsByMemberId } =
+    await getConversationSummariesForMembers(currentUser, members);
+
+  const membersWithConversations = membersResponse.map((member) => ({
+    ...member,
+    familyConversation,
+    individualConversation:
+      individualConversationsByMemberId.get(String(member.id)) || null,
+  }));
+
   return {
     family: {
       id: familyId,
       name: buildFamilyName(family),
       memberCount: members.length,
       caregiverCount: caregivers.length,
-      members: membersResponse,
+      members: membersWithConversations,
+      familyConversation,
       caregivers: caregivers.map((caregiverUser) => ({
         id: caregiverUser._id,
         familyName: buildFamilyName(family),
