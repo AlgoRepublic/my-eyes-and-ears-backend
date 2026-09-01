@@ -35,6 +35,18 @@ const parsePositiveInteger = (value, name, defaultValue, maximum) => {
   return parsed;
 };
 
+const normalizeObjectId = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "object" && value._id) {
+    return String(value._id);
+  }
+
+  return String(value);
+};
+
 const mapNotificationUser = (user) => {
   if (!user?._id) {
     return null;
@@ -45,6 +57,8 @@ const mapNotificationUser = (user) => {
     name: user.name,
     email: user.email ?? null,
     imageUrl: user.image ?? null,
+    relation: user.relation ?? null,
+    role: user.role ?? null,
   };
 };
 
@@ -53,10 +67,7 @@ const resolveCaregiverUser = (notification) => {
     return mapNotificationUser(notification.subjectUserId);
   }
 
-  if (
-    notification.type === "MESSAGE" ||
-    notification.type === "chat"
-  ) {
+  if (notification.type === "MESSAGE" || notification.type === "chat") {
     return mapNotificationUser(notification.senderId);
   }
 
@@ -70,12 +81,12 @@ const resolveCaregiverUser = (notification) => {
 const mapNotificationForUser = (notification, currentUser) => {
   const mapped = {
     _id: String(notification._id),
-    userId: String(notification.userId),
-    senderId: notification.senderId ? String(notification.senderId) : null,
+    userId: normalizeObjectId(notification.userId),
+    senderId: normalizeObjectId(notification.senderId),
     type: STORED_TYPE_TO_API_TYPE[notification.type] || notification.type,
     title: notification.title,
     body: notification.body,
-    referenceId: String(notification.referenceId),
+    referenceId: normalizeObjectId(notification.referenceId),
     isRead: notification.isRead,
     readAt: notification.readAt ?? null,
     createdAt: notification.createdAt,

@@ -151,11 +151,14 @@ test("notification history is owned by the authenticated user and paginated", as
   assert.equal(receivedSkip, 20);
   assert.equal(receivedLimit, 20);
   assert.equal(result.notifications[0].type, "MESSAGE");
+  assert.equal(result.notifications[0].senderId, senderId);
   assert.deepEqual(result.notifications[0].user, {
     _id: currentUserId,
     name: "Ali",
     email: null,
     imageUrl: null,
+    relation: null,
+    role: "parent",
   });
   assert.deepEqual(result.pagination, {
     page: 2,
