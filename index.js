@@ -21,14 +21,17 @@ const {
 const upload = require("./middlewares/multer");
 const { registerChatSocketHandlers } = require("./services/chat/socket");
 const {
-  registerNotificationSocketHandlers,
-} = require("./services/notification/socket");
+  registerDashboardSocketHandlers,
+} = require("./services/dashboard/socket");
 const {
   registerConversationListSocketHandlers,
 } = require("./services/chat/conversationListSocket");
 const {
   subscribeNotificationUnreadCountUpdates,
 } = require("./services/notification/realtime");
+const {
+  subscribeDashboardUpdates,
+} = require("./services/dashboard/realtime");
 const {
   subscribeConversationListUpdates,
 } = require("./services/chat/conversationListRealtime");
@@ -94,11 +97,12 @@ app.get("/", (req, res) => {
 });
 
 registerChatSocketHandlers(io);
-const notificationIo = registerNotificationSocketHandlers(io);
+const dashboardIo = registerDashboardSocketHandlers(io);
 const conversationsIo = registerConversationListSocketHandlers(io);
-app.locals.notificationIo = notificationIo;
+app.locals.dashboardIo = dashboardIo;
 app.locals.conversationsIo = conversationsIo;
-subscribeNotificationUnreadCountUpdates(notificationIo);
+subscribeNotificationUnreadCountUpdates(dashboardIo);
+subscribeDashboardUpdates(dashboardIo);
 subscribeConversationListUpdates(conversationsIo);
 
 const startServer = async () => {

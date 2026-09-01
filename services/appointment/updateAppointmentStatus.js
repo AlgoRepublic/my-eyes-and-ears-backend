@@ -14,6 +14,8 @@ const { syncAppointmentNotifications } = require("../notification/sync");
 const {
   createActionNotificationsForParent,
 } = require("../notification/notification.service");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const PARENT_ALLOWED_STATUSES = new Set([CONFIRMED_STATUS, RESCHEDULED_STATUS]);
 const CAREGIVER_ALLOWED_STATUSES = new Set([
@@ -100,6 +102,9 @@ const updateAppointmentStatusService = async ({
       status: updatedAppointment.status,
     },
   });
+
+  const dashboardAudience = await getDashboardAudienceForParent(parentUser._id);
+  await notifyDashboardUpdates(dashboardAudience, "recentData:appointment");
 
   const computedStatus = getComputedAppointmentStatus(updatedAppointment);
 

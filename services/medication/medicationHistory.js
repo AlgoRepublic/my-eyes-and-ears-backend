@@ -5,6 +5,8 @@ const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
   createActionNotificationsForParent,
 } = require("../notification/notification.service");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
 const {
   getUtcDateTimeFromDateAndTime,
   getUtcDateTimeForTodayCheckin,
@@ -368,6 +370,9 @@ const updateMedicationStatusService = async ({
       status: history.status,
     },
   });
+
+  const dashboardAudience = await getDashboardAudienceForParent(parentUser._id);
+  await notifyDashboardUpdates(dashboardAudience, "recentData:medication");
 
   return {
     medicationId: history.medicationId,

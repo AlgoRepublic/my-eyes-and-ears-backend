@@ -16,6 +16,7 @@ const {
 const { formatMessage } = require("./formatMessage");
 const { queueChatNotifications } = require("./notifications");
 const { notifyConversationListUpdates } = require("./conversationListPublisher");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const ATTACHMENT_MESSAGE_TYPES = new Set(["image", "video", "audio", "file"]);
 
@@ -225,6 +226,10 @@ const sendMessageService = async (
   }).catch(() => {});
 
   await notifyConversationListUpdates(conversation.participants);
+  await notifyDashboardUpdates(
+    conversation.participants,
+    "message:unread-count",
+  );
 
   return formattedMessage;
 };
@@ -348,6 +353,7 @@ const markConversationReadService = async (
   }
 
   await notifyConversationListUpdates(currentUserId);
+  await notifyDashboardUpdates(currentUserId, "message:unread-count");
 
   return response;
 };
