@@ -24,8 +24,14 @@ const {
   registerNotificationSocketHandlers,
 } = require("./services/notification/socket");
 const {
+  registerConversationListSocketHandlers,
+} = require("./services/chat/conversationListSocket");
+const {
   subscribeNotificationUnreadCountUpdates,
 } = require("./services/notification/realtime");
+const {
+  subscribeConversationListUpdates,
+} = require("./services/chat/conversationListRealtime");
 
 const app = express();
 const server = http.createServer(app);
@@ -89,8 +95,11 @@ app.get("/", (req, res) => {
 
 registerChatSocketHandlers(io);
 const notificationIo = registerNotificationSocketHandlers(io);
+const conversationsIo = registerConversationListSocketHandlers(io);
 app.locals.notificationIo = notificationIo;
+app.locals.conversationsIo = conversationsIo;
 subscribeNotificationUnreadCountUpdates(notificationIo);
+subscribeConversationListUpdates(conversationsIo);
 
 const startServer = async () => {
   await connectDB();

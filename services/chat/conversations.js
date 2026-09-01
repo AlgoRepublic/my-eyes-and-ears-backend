@@ -14,6 +14,7 @@ const {
   mapMinimalUser,
 } = require("./chatAccess");
 const { formatLastMessage } = require("./formatMessage");
+const { notifyConversationListUpdates } = require("./conversationListPublisher");
 
 const getFamilyMemberUsers = async (familyId) =>
   User.find({
@@ -496,6 +497,8 @@ const getOrCreateIndividualConversationService = async (
     conversationId: conversation._id,
     userId: currentUserId,
   });
+
+  await notifyConversationListUpdates([currentUserId, targetUser._id]);
 
   return {
     conversationId: conversation._id,

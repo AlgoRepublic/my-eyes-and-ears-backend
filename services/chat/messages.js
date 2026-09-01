@@ -15,6 +15,7 @@ const {
 } = require("./chatAccess");
 const { formatMessage } = require("./formatMessage");
 const { queueChatNotifications } = require("./notifications");
+const { notifyConversationListUpdates } = require("./conversationListPublisher");
 
 const ATTACHMENT_MESSAGE_TYPES = new Set(["image", "video", "audio", "file"]);
 
@@ -223,6 +224,8 @@ const sendMessageService = async (
     mutedUserIds,
   }).catch(() => {});
 
+  await notifyConversationListUpdates(conversation.participants);
+
   return formattedMessage;
 };
 
@@ -343,6 +346,8 @@ const markConversationReadService = async (
       unreadCount: 0,
     });
   }
+
+  await notifyConversationListUpdates(currentUserId);
 
   return response;
 };
