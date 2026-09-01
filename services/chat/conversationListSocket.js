@@ -1,8 +1,6 @@
 const { registerSocketAuth } = require("../socket/auth");
-const {
-  buildUserRoom,
-  buildConversationListPayload,
-} = require("./conversationListRealtime");
+const { buildUserRoom } = require("./conversationListPublisher");
+const { buildConversationListPayload } = require("./conversationListRealtime");
 
 const CONVERSATION_LIST_SOCKET_NAMESPACE = "/conversations";
 
