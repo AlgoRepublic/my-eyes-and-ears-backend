@@ -2,14 +2,12 @@ const Notification = require("../../models/notification");
 const notificationConfig = require("../../config/notification");
 const { logNotificationEvent } = require("../../utils/notificationLogger");
 const { getNotificationRecipients } = require("./recipients");
-const { addNotificationJob, enqueueNotificationJobSafely } = require("../../queues/notification.queue");
+const {
+  addNotificationJob,
+  enqueueNotificationJobSafely,
+} = require("../../queues/notification.queue");
 
-const buildDedupeKey = ({
-  type,
-  referenceId,
-  userId,
-  scheduledAt,
-}) => {
+const buildDedupeKey = ({ type, referenceId, userId, scheduledAt }) => {
   return [
     type,
     String(referenceId),
@@ -73,6 +71,8 @@ const upsertScheduledNotifications = async ({
       const content = buildContent({ scheduledAt });
       docs.push({
         userId: recipient.userId,
+        subjectUserId:
+          recipient.role === "caregiver" ? parentUserId : null,
         type,
         referenceId,
         title: content.title,
@@ -181,29 +181,78 @@ const queueNotificationIfDueSoon = async (notification) => {
 
 const createImmediateNotification = async ({
   userId,
+  senderId = null,
+  subjectUserId = null,
+  type,
+  referenceId,
+  title,
+  body,
+  data = {},
+  dedupeKey: dedupeKeyOverride = null,
+}) => {
+  const scheduledAt = new Date();
+  const dedupeKey =
+    dedupeKeyOverride ||
+    `${type}:${referenceId}:${userId}:immediate:${Date.now()}`;
+
+  try {
+    const notification = await Notification.create({
+      userId,
+      senderId,
+      subjectUserId,
+      type,
+      referenceId,
+      title,
+      body,
+      data,
+      scheduledAt,
+      status: "pending",
+      dedupeKey,
+    });
+
+    await queueNotificationIfDueSoon(notification);
+    return notification;
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+
+    return Notification.findOne({ dedupeKey });
+  }
+};
+
+const createActionNotificationsForParent = async ({
+  parentUserId,
+  senderId,
   type,
   referenceId,
   title,
   body,
   data = {},
 }) => {
-  const scheduledAt = new Date();
-  const dedupeKey = `${type}:${referenceId}:${userId}:immediate:${Date.now()}`;
-
-  const notification = await Notification.create({
-    userId,
+  const recipients = await getNotificationRecipients({
+    parentUserId,
     type,
-    referenceId,
-    title,
-    body,
-    data,
-    scheduledAt,
-    status: "pending",
-    dedupeKey,
   });
+  const actorId = String(senderId);
 
-  await queueNotificationIfDueSoon(notification);
-  return notification;
+  return Promise.all(
+    recipients
+      .filter((recipient) => String(recipient.userId) !== actorId)
+      .map((recipient) =>
+        createImmediateNotification({
+          userId: recipient.userId,
+          senderId,
+          subjectUserId:
+            recipient.role === "caregiver" ? parentUserId : null,
+          type,
+          referenceId,
+          title,
+          body,
+          data,
+        }),
+      ),
+  );
 };
 
 module.exports = {
@@ -212,4 +261,5 @@ module.exports = {
   upsertScheduledNotifications,
   queueNotificationIfDueSoon,
   createImmediateNotification,
+  createActionNotificationsForParent,
 };

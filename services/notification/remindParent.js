@@ -52,7 +52,13 @@ const mapNotificationType = (type) => {
   return "checkinReminder";
 };
 
-const resolveReference = ({ type, appointment, medication, checkin, parentUser }) => {
+const resolveReference = ({
+  type,
+  appointment,
+  medication,
+  checkin,
+  parentUser,
+}) => {
   if (type === "appointment" && appointment) {
     return appointment._id;
   }
@@ -98,6 +104,8 @@ const sendRemindParentNotification = async ({
 
   const notification = await createImmediateNotification({
     userId: parentUser._id,
+    senderId: caregiverUser._id,
+    subjectUserId: parentUser._id,
     type: mapNotificationType(type),
     referenceId,
     title,

@@ -36,7 +36,7 @@ const syncAppointmentNotifications = async (appointmentId) => {
     referenceId: appointment._id,
     parentUserId: appointment.userId,
     occurrences,
-    includeCaregivers: false,
+    includeCaregivers: true,
     buildContent: () => ({
       ...content,
       data: {

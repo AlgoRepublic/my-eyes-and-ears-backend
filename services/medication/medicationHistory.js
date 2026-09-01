@@ -3,6 +3,9 @@ const MedicationHistory = require("../../models/medicationHistory");
 const { CustomError } = require("../../utils/error");
 const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
+  createActionNotificationsForParent,
+} = require("../notification/notification.service");
+const {
   getUtcDateTimeFromDateAndTime,
   getUtcDateTimeForTodayCheckin,
   getUtcStartOfDay,
@@ -65,11 +68,16 @@ const getMedicationUpcomingDateTime = (medication, now = new Date()) => {
   const frequency = medication.frequency;
 
   if (DATE_BASED_FREQUENCIES.has(frequency)) {
-    const selectedDates = Array.isArray(medication.dates) ? medication.dates : [];
+    const selectedDates = Array.isArray(medication.dates)
+      ? medication.dates
+      : [];
     let nearestDateTime = null;
 
     for (const dateValue of selectedDates) {
-      const dateTime = getUtcDateTimeFromDateAndTime(dateValue, medication.time);
+      const dateTime = getUtcDateTimeFromDateAndTime(
+        dateValue,
+        medication.time,
+      );
       if (!dateTime || dateTime <= now) {
         continue;
       }
@@ -104,11 +112,16 @@ const getMedicationReminderDateTime = (medication, now = new Date()) => {
   const frequency = medication.frequency;
 
   if (DATE_BASED_FREQUENCIES.has(frequency)) {
-    const selectedDates = Array.isArray(medication.dates) ? medication.dates : [];
+    const selectedDates = Array.isArray(medication.dates)
+      ? medication.dates
+      : [];
 
     for (const dateValue of selectedDates) {
       const parsedDate = new Date(dateValue);
-      if (Number.isNaN(parsedDate.getTime()) || !isSameUtcDay(parsedDate, now)) {
+      if (
+        Number.isNaN(parsedDate.getTime()) ||
+        !isSameUtcDay(parsedDate, now)
+      ) {
         continue;
       }
 
@@ -291,7 +304,7 @@ const updateMedicationStatusService = async ({
     _id: medicationId,
     userId: parentUser._id,
     isActive: true,
-  }).select("_id userId");
+  }).select("_id userId name dosage");
 
   if (!medication) {
     throw new CustomError("Medication not found", [], 404);
@@ -340,6 +353,21 @@ const updateMedicationStatusService = async ({
       setDefaultsOnInsert: true,
     },
   );
+
+  await createActionNotificationsForParent({
+    parentUserId: parentUser._id,
+    senderId: currentUser._id || currentUser.id,
+    type: "medication",
+    referenceId: medication._id,
+    title: "Medication status updated",
+    body: `${parentUser.name} marked ${medication.name} as ${history.status}.`,
+    data: {
+      type: "medication_status",
+      medicationId: String(medication._id),
+      parentUserId: String(parentUser._id),
+      status: history.status,
+    },
+  });
 
   return {
     medicationId: history.medicationId,

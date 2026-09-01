@@ -5,6 +5,8 @@ const NOTIFICATION_TYPES = [
   "appointment",
   "checkinReminder",
   "chat",
+  "MESSAGE",
+  "sos",
 ];
 const NOTIFICATION_STATUSES = [
   "pending",
@@ -22,6 +24,16 @@ const notificationSchema = new mongoose.Schema(
       ref: "User",
       required: true,
       index: true,
+    },
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    subjectUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
     type: {
       type: String,
@@ -59,6 +71,15 @@ const notificationSchema = new mongoose.Schema(
       default: "pending",
       index: true,
     },
+    isRead: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
     attempts: {
       type: Number,
       default: 0,
@@ -87,6 +108,10 @@ const notificationSchema = new mongoose.Schema(
 
 notificationSchema.index({ status: 1, scheduledAt: 1 });
 notificationSchema.index({ userId: 1, scheduledAt: -1 });
+notificationSchema.index({ userId: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, isRead: 1 });
+notificationSchema.index({ userId: 1, type: 1, senderId: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, subjectUserId: 1, createdAt: -1 });
 notificationSchema.index({ referenceId: 1, type: 1, status: 1 });
 notificationSchema.index({ dedupeKey: 1 }, { unique: true });
 

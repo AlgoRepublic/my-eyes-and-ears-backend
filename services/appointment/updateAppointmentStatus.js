@@ -11,6 +11,9 @@ const {
   CANCELLED_STATUS,
 } = require("./dashboardAppointments");
 const { syncAppointmentNotifications } = require("../notification/sync");
+const {
+  createActionNotificationsForParent,
+} = require("../notification/notification.service");
 
 const PARENT_ALLOWED_STATUSES = new Set([CONFIRMED_STATUS, RESCHEDULED_STATUS]);
 const CAREGIVER_ALLOWED_STATUSES = new Set([
@@ -82,6 +85,21 @@ const updateAppointmentStatusService = async ({
   }
 
   syncAppointmentNotifications(updatedAppointment._id);
+
+  await createActionNotificationsForParent({
+    parentUserId: parentUser._id,
+    senderId: currentUser._id || currentUser.id,
+    type: "appointment",
+    referenceId: updatedAppointment._id,
+    title: "Appointment status updated",
+    body: `${parentUser.name}'s appointment was marked as ${updatedAppointment.status}.`,
+    data: {
+      type: "appointment_status",
+      appointmentId: String(updatedAppointment._id),
+      parentUserId: String(parentUser._id),
+      status: updatedAppointment.status,
+    },
+  });
 
   const computedStatus = getComputedAppointmentStatus(updatedAppointment);
 

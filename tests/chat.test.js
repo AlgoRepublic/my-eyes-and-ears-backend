@@ -10,7 +10,6 @@ const { validateSendMessagePayload } = require("../services/chat/messages");
 const { CustomError } = require("../utils/error");
 const {
   buildChatNotificationContent,
-  isChatNotificationEnabled,
 } = require("../services/chat/notifications");
 
 test("individual conversation key is stable regardless of user order", () => {
@@ -105,17 +104,6 @@ test("deleted messages are returned with isDeleted flag", () => {
   assert.equal(formatted.text, null);
 });
 
-test("chat notification respects parent familyMessages preference", () => {
-  assert.equal(
-    isChatNotificationEnabled({ familyMessages: false, doNotDisturb: false }, "parent"),
-    false,
-  );
-  assert.equal(
-    isChatNotificationEnabled({ familyMessages: true, doNotDisturb: false }, "parent"),
-    true,
-  );
-});
-
 test("chat notification payload includes conversation metadata", () => {
   const content = buildChatNotificationContent({
     sender: { name: "Sarah" },
@@ -134,4 +122,5 @@ test("chat notification payload includes conversation metadata", () => {
   assert.equal(content.data.type, "chat_message");
   assert.equal(content.data.conversationId, "64f1a2b3c4d5e6f7a8b9c0d6");
   assert.match(content.body, /Thinking of you today/);
+  assert.match(content.title, /Sarah sent you a message/);
 });

@@ -1,8 +1,9 @@
 const ProfileSetting = require("../../models/profileSetting");
 const User = require("../../models/user");
-const { createImmediateNotification } = require("../notification/notification.service");
+const {
+  createImmediateNotification,
+} = require("../notification/notification.service");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
-const { isViewingConversation } = require("./presence");
 
 const isChatNotificationEnabled = (profileSetting, role) => {
   if (!profileSetting || profileSetting.doNotDisturb) {
@@ -37,7 +38,9 @@ const buildChatNotificationContent = ({ sender, message, conversation }) => {
   }
 
   const title =
-    conversation.type === "family" ? "Family Group" : senderName;
+    conversation.type === "family"
+      ? `${senderName} sent a message in Family Group`
+      : `${senderName} sent you a message`;
 
   return {
     title,
@@ -57,64 +60,45 @@ const queueChatNotifications = async ({
   message,
   sender,
   participantUserIds = [],
-  mutedUserIds = new Set(),
 }) => {
   const senderId = String(message.senderId);
   const recipientIds = participantUserIds
     .map((id) => String(id))
-    .filter((id) => id !== senderId && !mutedUserIds.has(id));
+    .filter((id) => id !== senderId);
 
   if (!recipientIds.length) {
     return [];
   }
 
-  const [users, profileSettings] = await Promise.all([
-    User.find({
-      _id: { $in: recipientIds },
-      ...ACTIVE_USER_FILTER,
-    }).select("_id role fcmTokens"),
-    ProfileSetting.find({ userId: { $in: recipientIds } }).lean(),
-  ]);
+  const users = await User.find({
+    _id: { $in: recipientIds },
+    ...ACTIVE_USER_FILTER,
+  }).select("_id role");
 
-  const profileByUserId = profileSettings.reduce((accumulator, item) => {
-    accumulator.set(String(item.userId), item);
-    return accumulator;
-  }, new Map());
+  const content = buildChatNotificationContent({
+    sender,
+    message,
+    conversation,
+  });
 
-  const content = buildChatNotificationContent({ sender, message, conversation });
-  const notifications = [];
-
-  for (const user of users) {
-    if (!user.fcmTokens?.length) {
-      continue;
-    }
-
-    if (isViewingConversation(user._id, conversation._id)) {
-      continue;
-    }
-
-    const enabled = isChatNotificationEnabled(
-      profileByUserId.get(String(user._id)),
-      user.role,
-    );
-
-    if (!enabled) {
-      continue;
-    }
-
-    notifications.push(
+  return Promise.all(
+    users.map((user) =>
       createImmediateNotification({
         userId: user._id,
-        type: "chat",
+        senderId: message.senderId,
+        subjectUserId:
+          user.role === "caregiver" && sender?.role === "parent"
+            ? sender._id
+            : null,
+        type: "MESSAGE",
         referenceId: message._id,
         title: content.title,
         body: content.body,
         data: content.data,
+        dedupeKey: `MESSAGE:${String(message._id)}:${String(user._id)}`,
       }),
-    );
-  }
-
-  return Promise.all(notifications);
+    ),
+  );
 };
 
 module.exports = {
