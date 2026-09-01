@@ -538,7 +538,10 @@ const updateCheckinStatusService = async ({
   });
 
   const dashboardAudience = await getDashboardAudienceForParent(parentUser._id);
-  await notifyDashboardUpdates(dashboardAudience, "recentData:checkIn");
+  await Promise.all([
+    notifyDashboardUpdates(dashboardAudience, "recentData:upcomingCheckin"),
+    notifyDashboardUpdates(dashboardAudience, "recentData:nearestPassedCheckin"),
+  ]);
 
   return {
     checkinId: history.checkinReminderId,

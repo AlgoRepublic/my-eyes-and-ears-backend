@@ -372,7 +372,10 @@ const updateMedicationStatusService = async ({
   });
 
   const dashboardAudience = await getDashboardAudienceForParent(parentUser._id);
-  await notifyDashboardUpdates(dashboardAudience, "recentData:medication");
+  await Promise.all([
+    notifyDashboardUpdates(dashboardAudience, "recentData:medication"),
+    notifyDashboardUpdates(dashboardAudience, "medications:due_count"),
+  ]);
 
   return {
     medicationId: history.medicationId,

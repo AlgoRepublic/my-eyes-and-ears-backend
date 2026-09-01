@@ -4,6 +4,10 @@ const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { buildParentRecentData } = require("../user/buildParentRecentData");
 const { buildMembersListResponse } = require("../user/buildMembersListResponse");
 const { getTotalUnreadCountService } = require("../chat/conversations");
+const { getTodayMedicationResponse } = require("../medication/medicationHistory");
+
+const countMedicationDues = (medications = []) =>
+  medications.filter((medication) => medication?.status !== "taken").length;
 
 const loadDashboardUser = async (userId) =>
   User.findOne({
@@ -23,6 +27,29 @@ const getFamilyMembersForCaregiver = async (user) => {
 const buildMessageUnreadCountPayload = async (user) => {
   const { unreadCount } = await getTotalUnreadCountService(user);
   return { unreadCount };
+};
+
+const buildMedicationsDueCountPayload = async (user) => {
+  if (user.role === "parent") {
+    const medications = await getTodayMedicationResponse(user._id);
+    return { dueCount: countMedicationDues(medications) };
+  }
+
+  if (user.role === "caregiver") {
+    const members = await getFamilyMembersForCaregiver(user);
+    const membersDueCounts = await Promise.all(
+      members.map(async (member) => {
+        const medications = await getTodayMedicationResponse(member._id);
+        return {
+          userId: String(member._id),
+          dueCount: countMedicationDues(medications),
+        };
+      }),
+    );
+    return { members: membersDueCounts };
+  }
+
+  return { dueCount: 0 };
 };
 
 const buildRecentMedicationPayload = async (user) => {
@@ -65,13 +92,10 @@ const buildRecentAppointmentPayload = async (user) => {
   return { upcomingAppointment: null };
 };
 
-const buildRecentCheckInPayload = async (user) => {
+const buildRecentUpcomingCheckinPayload = async (user) => {
   if (user.role === "parent") {
     const { recentData } = await buildParentRecentData(user._id);
-    return {
-      upcomingCheckin: recentData.upcomingCheckin ?? null,
-      nearestPassedCheckin: recentData.nearestPassedCheckin ?? null,
-    };
+    return { upcomingCheckin: recentData.upcomingCheckin ?? null };
   }
 
   if (user.role === "caregiver") {
@@ -81,22 +105,40 @@ const buildRecentCheckInPayload = async (user) => {
       members: membersResponse.map((member) => ({
         userId: member.id,
         upcomingCheckin: member.recentData?.upcomingCheckin ?? null,
+      })),
+    };
+  }
+
+  return { upcomingCheckin: null };
+};
+
+const buildRecentNearestPassedCheckinPayload = async (user) => {
+  if (user.role === "parent") {
+    const { recentData } = await buildParentRecentData(user._id);
+    return { nearestPassedCheckin: recentData.nearestPassedCheckin ?? null };
+  }
+
+  if (user.role === "caregiver") {
+    const members = await getFamilyMembersForCaregiver(user);
+    const membersResponse = await buildMembersListResponse(members);
+    return {
+      members: membersResponse.map((member) => ({
+        userId: member.id,
         nearestPassedCheckin: member.recentData?.nearestPassedCheckin ?? null,
       })),
     };
   }
 
-  return {
-    upcomingCheckin: null,
-    nearestPassedCheckin: null,
-  };
+  return { nearestPassedCheckin: null };
 };
 
 const DASHBOARD_EVENT_BUILDERS = {
   "message:unread-count": buildMessageUnreadCountPayload,
+  "medications:due_count": buildMedicationsDueCountPayload,
   "recentData:medication": buildRecentMedicationPayload,
   "recentData:appointment": buildRecentAppointmentPayload,
-  "recentData:checkIn": buildRecentCheckInPayload,
+  "recentData:upcomingCheckin": buildRecentUpcomingCheckinPayload,
+  "recentData:nearestPassedCheckin": buildRecentNearestPassedCheckinPayload,
 };
 
 const buildDashboardEventPayload = async (userId, eventName) => {
@@ -117,7 +159,9 @@ module.exports = {
   DASHBOARD_EVENT_BUILDERS,
   buildDashboardEventPayload,
   buildMessageUnreadCountPayload,
+  buildMedicationsDueCountPayload,
   buildRecentMedicationPayload,
   buildRecentAppointmentPayload,
-  buildRecentCheckInPayload,
+  buildRecentUpcomingCheckinPayload,
+  buildRecentNearestPassedCheckinPayload,
 };
