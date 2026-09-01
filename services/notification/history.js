@@ -161,12 +161,16 @@ const listNotificationHistoryService = async (currentUser, filters = {}) => {
   };
 };
 
+const UNREAD_COUNT_STATUSES = ["pending", "queued", "processing", "sent"];
+
+const buildUnreadCountQuery = (userId) => ({
+  userId,
+  status: { $in: UNREAD_COUNT_STATUSES },
+  isRead: false,
+});
+
 const getUnreadNotificationCountByUserId = async (userId) => {
-  const unreadCount = await Notification.countDocuments({
-    userId,
-    status: "sent",
-    isRead: false,
-  });
+  const unreadCount = await Notification.countDocuments(buildUnreadCountQuery(userId));
 
   return { unreadCount };
 };
@@ -177,11 +181,7 @@ const getUnreadNotificationCountService = async (currentUser) =>
 const markAllNotificationsReadService = async (currentUser) => {
   const readAt = new Date();
   const result = await Notification.updateMany(
-    {
-      userId: currentUser._id,
-      status: "sent",
-      isRead: false,
-    },
+    buildUnreadCountQuery(currentUser._id),
     {
       $set: {
         isRead: true,
@@ -197,6 +197,8 @@ const markAllNotificationsReadService = async (currentUser) => {
 };
 
 module.exports = {
+  UNREAD_COUNT_STATUSES,
+  buildUnreadCountQuery,
   listNotificationHistoryService,
   getUnreadNotificationCountByUserId,
   getUnreadNotificationCountService,

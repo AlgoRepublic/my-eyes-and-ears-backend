@@ -5,8 +5,6 @@ const {
   sendNotificationToUser,
   isRetryableError,
 } = require("./sender");
-const { publishNotificationUnreadCountUpdate } = require("./realtime");
-
 const claimNotificationForProcessing = async (notificationId) => {
   return Notification.findOneAndUpdate(
     {
@@ -130,17 +128,13 @@ const processNotificationJob = async (notificationId) => {
       throw new Error(delivery.reason || "undelivered");
     }
 
-    const sentNotification = await markNotificationSent(notificationId);
+    await markNotificationSent(notificationId);
     logNotificationEvent("notification_sent", {
       notificationId,
       userId: String(notification.userId),
       type: notification.type,
       attempt: notification.attempts,
     });
-
-    if (sentNotification) {
-      await publishNotificationUnreadCountUpdate(sentNotification.userId);
-    }
 
     return { sent: true };
   } catch (error) {

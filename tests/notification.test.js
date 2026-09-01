@@ -236,7 +236,7 @@ test("unread notification count is scoped to authenticated user", async (t) => {
 
   assert.deepEqual(receivedQuery, {
     userId: currentUserId,
-    status: "sent",
+    status: { $in: ["pending", "queued", "processing", "sent"] },
     isRead: false,
   });
   assert.deepEqual(result, { unreadCount: 4 });
@@ -262,7 +262,7 @@ test("mark all notifications read only updates the authenticated user's unread r
 
   assert.deepEqual(receivedQuery, {
     userId: currentUserId,
-    status: "sent",
+    status: { $in: ["pending", "queued", "processing", "sent"] },
     isRead: false,
   });
   assert.deepEqual(receivedUpdate, {

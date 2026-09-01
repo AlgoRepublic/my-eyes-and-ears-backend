@@ -6,6 +6,18 @@ const {
   addNotificationJob,
   enqueueNotificationJobSafely,
 } = require("../../queues/notification.queue");
+const { publishNotificationUnreadCountUpdate } = require("./realtime");
+
+const notifyUnreadCountForUser = async (userId) => {
+  try {
+    await publishNotificationUnreadCountUpdate(userId);
+  } catch (error) {
+    logNotificationEvent("notification_unread_count_publish_error", {
+      userId: String(userId),
+      error: error?.message,
+    });
+  }
+};
 
 const buildDedupeKey = ({ type, referenceId, userId, scheduledAt }) => {
   return [
@@ -97,6 +109,7 @@ const upsertScheduledNotifications = async ({
   const inserted = [];
   for (const doc of docs) {
     try {
+      const alreadyExists = await Notification.exists({ dedupeKey: doc.dedupeKey });
       const created = await Notification.findOneAndUpdate(
         { dedupeKey: doc.dedupeKey },
         {
@@ -108,8 +121,9 @@ const upsertScheduledNotifications = async ({
           setDefaultsOnInsert: true,
         },
       );
-      if (created.status === "pending") {
+      if (!alreadyExists && created) {
         inserted.push(created);
+        await notifyUnreadCountForUser(created.userId);
       }
     } catch (error) {
       if (error?.code !== 11000) {
@@ -211,6 +225,7 @@ const createImmediateNotification = async ({
     });
 
     await queueNotificationIfDueSoon(notification);
+    await notifyUnreadCountForUser(notification.userId);
     return notification;
   } catch (error) {
     if (error?.code !== 11000) {
