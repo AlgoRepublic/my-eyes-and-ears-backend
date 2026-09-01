@@ -20,6 +20,12 @@ const {
 } = require("./routes/queueDashboard");
 const upload = require("./middlewares/multer");
 const { registerChatSocketHandlers } = require("./services/chat/socket");
+const {
+  registerNotificationSocketHandlers,
+} = require("./services/notification/socket");
+const {
+  subscribeNotificationUnreadCountUpdates,
+} = require("./services/notification/realtime");
 
 const app = express();
 const server = http.createServer(app);
@@ -82,6 +88,9 @@ app.get("/", (req, res) => {
 });
 
 registerChatSocketHandlers(io);
+const notificationIo = registerNotificationSocketHandlers(io);
+app.locals.notificationIo = notificationIo;
+subscribeNotificationUnreadCountUpdates(notificationIo);
 
 const startServer = async () => {
   await connectDB();

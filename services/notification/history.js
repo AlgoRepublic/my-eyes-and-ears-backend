@@ -161,15 +161,18 @@ const listNotificationHistoryService = async (currentUser, filters = {}) => {
   };
 };
 
-const getUnreadNotificationCountService = async (currentUser) => {
+const getUnreadNotificationCountByUserId = async (userId) => {
   const unreadCount = await Notification.countDocuments({
-    userId: currentUser._id,
+    userId,
     status: "sent",
     isRead: false,
   });
 
   return { unreadCount };
 };
+
+const getUnreadNotificationCountService = async (currentUser) =>
+  getUnreadNotificationCountByUserId(currentUser._id);
 
 const markAllNotificationsReadService = async (currentUser) => {
   const readAt = new Date();
@@ -195,6 +198,7 @@ const markAllNotificationsReadService = async (currentUser) => {
 
 module.exports = {
   listNotificationHistoryService,
+  getUnreadNotificationCountByUserId,
   getUnreadNotificationCountService,
   markAllNotificationsReadService,
 };
