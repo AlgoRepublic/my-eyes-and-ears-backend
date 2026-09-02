@@ -8,11 +8,34 @@ const {
 const { ensureParentMemberOrThrow } = require("./memberAccess");
 const { getMemberDetailService } = require("./getMemberDetail");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  extractLocationPayload,
+  normalizeLocationInput,
+} = require("../../utils/location");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
   const normalized = String(value || "").trim();
   return normalized ? normalized : null;
+};
+
+const parseBooleanLike = (value, fieldName) => {
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+
+  throw new CustomError(`${fieldName} must be a boolean`, [], 400);
 };
 
 const updateMemberService = async (
@@ -90,7 +113,24 @@ const updateMemberService = async (
   }
 
   if (payload.location !== undefined) {
-    updates.location = normalizeOptionalString(payload.location);
+    const locationPayload = extractLocationPayload(payload);
+    updates.location = normalizeLocationInput(locationPayload, {
+      requireCoordinates: false,
+    });
+  }
+
+  const locationRequestedInput =
+    payload.location_requested !== undefined
+      ? payload.location_requested
+      : payload.locationRequested;
+  let locationRequestedChanged = false;
+  if (locationRequestedInput !== undefined) {
+    updates.locationRequested = parseBooleanLike(
+      locationRequestedInput,
+      "location_requested",
+    );
+    locationRequestedChanged =
+      Boolean(parentUser.locationRequested) !== updates.locationRequested;
   }
 
   if (payload.familyName !== undefined) {
@@ -134,6 +174,13 @@ const updateMemberService = async (
   Object.assign(parentUser, updates);
   // parentUser.isProfileCompleted = Boolean(parentUser.familyName);
   await parentUser.save();
+
+  if (locationRequestedChanged) {
+    const dashboardAudience = await getDashboardAudienceForParent(
+      parentUser._id,
+    );
+    await notifyDashboardUpdates(dashboardAudience, "location_requested");
+  }
 
   if (Object.keys(accessibilityUpdates).length > 0) {
     const profileSetting = await ProfileSetting.findOne({

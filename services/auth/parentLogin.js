@@ -7,6 +7,8 @@ const { addFcmTokenToUser } = require("./fcmToken");
 const { CustomError } = require("../../utils/error");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 const { buildParentRecentData } = require("../user/buildParentRecentData");
+const { buildFamilyDetailsResponse } = require("../user/getFamilyDetails");
+const { formatLocationResponse } = require("../../utils/location");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -17,6 +19,14 @@ const signAccessToken = (user) => {
 const buildFamilyName = async (familyId) => {
   const family = await Family.findById(familyId);
   return family?.name || "";
+};
+
+const formatLocationUpdatedAt = (location) => {
+  if (!location?.updatedAt) {
+    return null;
+  }
+
+  return new Date(location.updatedAt).toISOString();
 };
 
 const parentLoginService = async (invitationCode, role, fcmToken) => {
@@ -45,16 +55,19 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
     throw new CustomError("Invalid invitation code", [], 404);
   }
 
-  const hasUpdatedFcmToken = addFcmTokenToUser(parentUser, fcmToken);
+  addFcmTokenToUser(parentUser, fcmToken);
   parentUser.isEmailVerified = true; // Mark email as verified upon successful login
   parentUser.isProfileCompleted = true; // Mark profile as completed upon successful login
   await parentUser.save();
 
-  const [profileSetting, contacts, { recentData, medicationDuesCount }] =
+  const [profileSetting, contacts, { recentData, medicationDuesCount }, family] =
     await Promise.all([
       ProfileSetting.findOne({ userId: parentUser._id }),
       Contact.find({ userId: parentUser._id }).sort({ createdAt: 1 }),
       buildParentRecentData(parentUser._id),
+      parentUser.familyId
+        ? buildFamilyDetailsResponse(parentUser, parentUser.familyId)
+        : Promise.resolve(null),
     ]);
 
   const accessToken = signAccessToken(parentUser);
@@ -66,6 +79,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
     },
   );
   const familyName = await buildFamilyName(parentUser.familyId);
+  const location = formatLocationResponse(parentUser.location);
 
   return {
     user: {
@@ -81,6 +95,9 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       familyInvitationCode: parentUser.familyInvitationCode,
       isProfileCompleted: parentUser.isProfileCompleted,
       hasPassword: Boolean(parentUser.password),
+      location,
+      location_updated_at: formatLocationUpdatedAt(parentUser.location),
+      location_requested: Boolean(parentUser.locationRequested),
       createdAt: parentUser.createdAt,
       updatedAt: parentUser.updatedAt,
       accessibilities: profileSetting
@@ -118,29 +135,18 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
         : null,
       recentData,
       medicationDuesCount,
-      // medications,
-      // contacts: contacts.map((item) => ({
-      //   id: item._id,
-      //   userId: item.userId,
-      //   name: item.name,
-      //   phoneNumber: item.phoneNumber,
-      //   relationship: item.relationship,
-      //   isPrimary: item.isPrimary,
-      //   isActive: item.isActive,
-      //   createdAt: item.createdAt,
-      //   updatedAt: item.updatedAt,
-      // })),
-      // checkinReminders: checkinReminders.map((item) => ({
-      //   id: item._id,
-      //   userId: item.userId,
-      //   time: item.time,
-      //   label: item.label,
-      //   isEnabled: item.isEnabled,
-      //   createdAt: item.createdAt,
-      //   updatedAt: item.updatedAt,
-      // })),
-      // upcomingAppointment: dashboardAppointments.upcomingAppointment,
-      // appointments: dashboardAppointments.appointments,
+      contacts: contacts.map((item) => ({
+        id: item._id,
+        userId: item.userId,
+        name: item.name,
+        phoneNumber: item.phoneNumber,
+        relationship: item.relationship,
+        isPrimary: item.isPrimary,
+        isActive: item.isActive,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+      family,
       accessToken,
       refreshToken,
     },

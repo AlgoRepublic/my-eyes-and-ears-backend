@@ -2,6 +2,53 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
+const userLocationSchema = new mongoose.Schema(
+  {
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
+    accuracy: {
+      type: Number,
+      default: null,
+    },
+    address: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    city: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    state: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    country: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    postalCode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false },
+);
+
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -46,9 +93,17 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     location: {
-      type: String,
+      type: userLocationSchema,
       default: null,
-      trim: true,
+    },
+    locationRequested: {
+      type: Boolean,
+      default: true,
+    },
+    sosStatus: {
+      type: String,
+      enum: ["active"],
+      default: null,
     },
     fcmTokens: {
       type: [String],

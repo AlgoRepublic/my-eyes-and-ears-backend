@@ -20,6 +20,11 @@ const {
   syncAppointmentNotifications,
   syncCheckinNotifications,
 } = require("../notification/sync");
+const {
+  extractLocationPayload,
+  normalizeLocationInput,
+  formatMemberLocationResponse,
+} = require("../../utils/location");
 
 const buildFamilyName = async (familyId) => {
   const family = await Family.findById(familyId);
@@ -46,7 +51,8 @@ const buildMemberResponse = ({
     relation: parentUser.relation,
     avatarColor: parentUser.avatarColor,
     image: parentUser.image,
-    location: parentUser.location,
+    location: formatMemberLocationResponse(parentUser.location),
+    location_requested: Boolean(parentUser.locationRequested),
     invitation: buildInvitationDetails(parentUser),
     familyName: familyName || "",
     isProfileCompleted: parentUser.isProfileCompleted,
@@ -155,9 +161,11 @@ const addMemberService = async (currentUser, data = {}) => {
   const phoneNumber = userPayload.phoneNumber
     ? String(userPayload.phoneNumber).trim()
     : null;
-  const location = userPayload.location
-    ? String(userPayload.location).trim()
-    : null;
+  const locationPayload = extractLocationPayload(userPayload);
+  const location =
+    locationPayload === undefined
+      ? null
+      : normalizeLocationInput(locationPayload, { requireCoordinates: false });
   const missedCheckInAlerts =
     userPayload.missedCheckInAlerts !== undefined
       ? Boolean(userPayload.missedCheckInAlerts)

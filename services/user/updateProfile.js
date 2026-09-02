@@ -13,6 +13,14 @@ const {
 } = require("./caregiverNotificationSettings");
 const { buildParentRecentData } = require("./buildParentRecentData");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  extractLocationPayload,
+  normalizeLocationInput,
+  formatLocationResponse,
+  hasValidCoordinates,
+} = require("../../utils/location");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
@@ -292,6 +300,18 @@ const updateProfileService = async (userId, payload, files = []) => {
     updates.image = await saveProfileImage(imageFile, userId);
   }
 
+  const locationPayload = extractLocationPayload(payload);
+  let locationWasUpdated = false;
+  if (locationPayload !== undefined) {
+    updates.location = normalizeLocationInput(locationPayload, {
+      requireCoordinates: true,
+    });
+    if (hasValidCoordinates(updates.location)) {
+      updates.locationRequested = false;
+      locationWasUpdated = true;
+    }
+  }
+
   if (
     Object.keys(updates).length === 0 &&
     Object.keys(notificationSettingUpdates).length === 0 &&
@@ -335,6 +355,11 @@ const updateProfileService = async (userId, payload, files = []) => {
     await user.save();
   }
 
+  if (locationWasUpdated && user.role === "parent") {
+    const dashboardAudience = await getDashboardAudienceForParent(user._id);
+    await notifyDashboardUpdates(dashboardAudience, "location_requested");
+  }
+
   if (imageFile && previousImage) {
     await deleteStoredFile(previousImage);
   }
@@ -349,6 +374,9 @@ const updateProfileService = async (userId, payload, files = []) => {
     familyName: resolvedFamilyName,
     image: user.image,
     avatarColor: user.avatarColor,
+    location: formatLocationResponse(user.location),
+    location_requested:
+      user.role === "parent" ? Boolean(user.locationRequested) : undefined,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     hasPassword: Boolean(user.password),

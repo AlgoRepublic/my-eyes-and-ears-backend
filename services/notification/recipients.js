@@ -6,12 +6,14 @@ const CAREGIVER_PREF_BY_TYPE = {
   medication: "missedMedications",
   appointment: null,
   checkinReminder: "missedCheckIns",
+  sos: "sosAlerts",
 };
 
 const PARENT_PREF_BY_TYPE = {
   medication: "medicationReminders",
   appointment: "appointmentsReminders",
   checkinReminder: "dailyCheckInReminders",
+  sos: null,
 };
 
 const isNotificationEnabledForUser = (profileSetting, type, role) => {

@@ -132,6 +132,42 @@ const buildRecentNearestPassedCheckinPayload = async (user) => {
   return { nearestPassedCheckin: null };
 };
 
+const buildLocationRequestedPayload = async (user) => {
+  if (user.role === "parent") {
+    return { location_requested: Boolean(user.locationRequested) };
+  }
+
+  if (user.role === "caregiver") {
+    const members = await getFamilyMembersForCaregiver(user);
+    return {
+      members: members.map((member) => ({
+        userId: String(member._id),
+        location_requested: Boolean(member.locationRequested),
+      })),
+    };
+  }
+
+  return { location_requested: false };
+};
+
+const buildSosStatusPayload = async (user) => {
+  if (user.role === "parent") {
+    return { sosStatus: user.sosStatus || null };
+  }
+
+  if (user.role === "caregiver") {
+    const members = await getFamilyMembersForCaregiver(user);
+    return {
+      members: members.map((member) => ({
+        userId: String(member._id),
+        sosStatus: member.sosStatus || null,
+      })),
+    };
+  }
+
+  return { sosStatus: null };
+};
+
 const DASHBOARD_EVENT_BUILDERS = {
   "message:unread-count": buildMessageUnreadCountPayload,
   "medications:due_count": buildMedicationsDueCountPayload,
@@ -139,6 +175,8 @@ const DASHBOARD_EVENT_BUILDERS = {
   "recentData:appointment": buildRecentAppointmentPayload,
   "recentData:upcomingCheckin": buildRecentUpcomingCheckinPayload,
   "recentData:nearestPassedCheckin": buildRecentNearestPassedCheckinPayload,
+  location_requested: buildLocationRequestedPayload,
+  "recentData:sosStatus": buildSosStatusPayload,
 };
 
 const buildDashboardEventPayload = async (userId, eventName) => {
@@ -164,4 +202,6 @@ module.exports = {
   buildRecentAppointmentPayload,
   buildRecentUpcomingCheckinPayload,
   buildRecentNearestPassedCheckinPayload,
+  buildLocationRequestedPayload,
+  buildSosStatusPayload,
 };
