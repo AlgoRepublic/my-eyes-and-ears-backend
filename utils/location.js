@@ -257,6 +257,7 @@ const formatMemberLocationResponse = (location) => {
 };
 
 const LOCATION_STATUS = {
+  IDLE: "idle",
   REQUESTED: "requested",
   COMPLETED: "completed",
   CANCELLED: "cancelled",
@@ -266,16 +267,16 @@ const LOCATION_STATUS_VALUES = Object.values(LOCATION_STATUS);
 
 /**
  * Normalize API/DB location status. Accepts the string enum and legacy booleans
- * (true → requested, false → completed) during migration.
+ * (true → requested, false → idle) during migration.
  */
 const normalizeLocationStatus = (value, fieldName = "location_status") => {
   if (typeof value === "boolean") {
-    return value ? LOCATION_STATUS.REQUESTED : LOCATION_STATUS.COMPLETED;
+    return value ? LOCATION_STATUS.REQUESTED : LOCATION_STATUS.IDLE;
   }
 
   if (typeof value === "number") {
     if (value === 1) return LOCATION_STATUS.REQUESTED;
-    if (value === 0) return LOCATION_STATUS.COMPLETED;
+    if (value === 0) return LOCATION_STATUS.IDLE;
   }
 
   if (typeof value === "string") {
@@ -284,7 +285,7 @@ const normalizeLocationStatus = (value, fieldName = "location_status") => {
       return LOCATION_STATUS.REQUESTED;
     }
     if (normalized === "false" || normalized === "0") {
-      return LOCATION_STATUS.COMPLETED;
+      return LOCATION_STATUS.IDLE;
     }
     if (LOCATION_STATUS_VALUES.includes(normalized)) {
       return normalized;
@@ -308,27 +309,27 @@ const resolveLocationStatus = (userOrStatus) => {
       try {
         return normalizeLocationStatus(userOrStatus.locationStatus);
       } catch (_error) {
-        return LOCATION_STATUS.REQUESTED;
+        return LOCATION_STATUS.IDLE;
       }
     }
 
     if (userOrStatus.locationRequested !== undefined) {
       return userOrStatus.locationRequested
         ? LOCATION_STATUS.REQUESTED
-        : LOCATION_STATUS.COMPLETED;
+        : LOCATION_STATUS.IDLE;
     }
 
-    return LOCATION_STATUS.REQUESTED;
+    return LOCATION_STATUS.IDLE;
   }
 
   if (userOrStatus === undefined || userOrStatus === null) {
-    return LOCATION_STATUS.REQUESTED;
+    return LOCATION_STATUS.IDLE;
   }
 
   try {
     return normalizeLocationStatus(userOrStatus);
   } catch (_error) {
-    return LOCATION_STATUS.REQUESTED;
+    return LOCATION_STATUS.IDLE;
   }
 };
 

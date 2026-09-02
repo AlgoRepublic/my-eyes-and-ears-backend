@@ -55,20 +55,20 @@ const connectDB = async () => {
         },
         { $set: { locationStatus: "requested" } },
       );
-      const migratedCompleted = await User.updateMany(
+      const migratedIdle = await User.updateMany(
         {
           locationRequested: false,
           locationStatus: { $exists: false },
         },
-        { $set: { locationStatus: "completed" } },
+        { $set: { locationStatus: "idle" } },
       );
 
       if (
         migratedRequested.modifiedCount > 0 ||
-        migratedCompleted.modifiedCount > 0
+        migratedIdle.modifiedCount > 0
       ) {
         console.log(
-          `✅ Migrated locationRequested → locationStatus (requested: ${migratedRequested.modifiedCount}, completed: ${migratedCompleted.modifiedCount})`,
+          `✅ Migrated locationRequested → locationStatus (requested: ${migratedRequested.modifiedCount}, idle: ${migratedIdle.modifiedCount})`,
         );
       }
 
@@ -77,7 +77,7 @@ const connectDB = async () => {
         { $unset: { locationRequested: "" } },
       );
 
-      // Parents who already shared GPS and are still "requested" → completed.
+      // Parents who already shared GPS and are still "requested" → idle.
       const clearedLocationRequest = await User.updateMany(
         {
           role: "parent",
@@ -85,7 +85,7 @@ const connectDB = async () => {
           "location.longitude": { $type: "number" },
           locationStatus: "requested",
         },
-        { $set: { locationStatus: "completed" } },
+        { $set: { locationStatus: "idle" } },
       );
 
       if (clearedLocationRequest.modifiedCount > 0) {
@@ -96,7 +96,7 @@ const connectDB = async () => {
 
       await User.updateMany(
         { locationStatus: { $exists: false } },
-        { $set: { locationStatus: "requested" } },
+        { $set: { locationStatus: "idle" } },
       );
 
       await User.updateMany(

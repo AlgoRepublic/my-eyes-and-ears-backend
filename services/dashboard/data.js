@@ -151,7 +151,7 @@ const buildLocationStatusPayload = async (user) => {
     };
   }
 
-  return { location_status: LOCATION_STATUS.REQUESTED };
+  return { location_status: LOCATION_STATUS.IDLE };
 };
 
 const buildSosStatusPayload = async (user) => {

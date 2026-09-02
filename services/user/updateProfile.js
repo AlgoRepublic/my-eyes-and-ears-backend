@@ -310,7 +310,7 @@ const updateProfileService = async (userId, payload, files = []) => {
       requireCoordinates: true,
     });
     if (hasValidCoordinates(updates.location)) {
-      updates.locationStatus = LOCATION_STATUS.COMPLETED;
+      updates.locationStatus = LOCATION_STATUS.IDLE;
       locationWasUpdated = true;
     }
   }

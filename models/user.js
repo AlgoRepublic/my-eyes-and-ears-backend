@@ -98,8 +98,8 @@ const userSchema = new mongoose.Schema(
     },
     locationStatus: {
       type: String,
-      enum: ["requested", "completed", "cancelled"],
-      default: "requested",
+      enum: ["idle", "requested", "completed", "cancelled"],
+      default: "idle",
     },
     sosStatus: {
       type: String,
