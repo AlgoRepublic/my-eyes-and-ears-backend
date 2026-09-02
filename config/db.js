@@ -47,26 +47,56 @@ const connectDB = async () => {
         );
       }
 
-      // Parents who already shared GPS coordinates no longer need a location request.
+      // Migrate legacy boolean locationRequested → string locationStatus.
+      const migratedRequested = await User.updateMany(
+        {
+          locationRequested: true,
+          locationStatus: { $exists: false },
+        },
+        { $set: { locationStatus: "requested" } },
+      );
+      const migratedCompleted = await User.updateMany(
+        {
+          locationRequested: false,
+          locationStatus: { $exists: false },
+        },
+        { $set: { locationStatus: "completed" } },
+      );
+
+      if (
+        migratedRequested.modifiedCount > 0 ||
+        migratedCompleted.modifiedCount > 0
+      ) {
+        console.log(
+          `✅ Migrated locationRequested → locationStatus (requested: ${migratedRequested.modifiedCount}, completed: ${migratedCompleted.modifiedCount})`,
+        );
+      }
+
+      await User.updateMany(
+        { locationRequested: { $exists: true } },
+        { $unset: { locationRequested: "" } },
+      );
+
+      // Parents who already shared GPS and are still "requested" → completed.
       const clearedLocationRequest = await User.updateMany(
         {
           role: "parent",
           "location.latitude": { $type: "number" },
           "location.longitude": { $type: "number" },
-          locationRequested: { $ne: false },
+          locationStatus: "requested",
         },
-        { $set: { locationRequested: false } },
+        { $set: { locationStatus: "completed" } },
       );
 
       if (clearedLocationRequest.modifiedCount > 0) {
         console.log(
-          `✅ Cleared locationRequested for ${clearedLocationRequest.modifiedCount} parent(s) with GPS`,
+          `✅ Cleared locationStatus for ${clearedLocationRequest.modifiedCount} parent(s) with GPS`,
         );
       }
 
       await User.updateMany(
-        { locationRequested: { $exists: false } },
-        { $set: { locationRequested: true } },
+        { locationStatus: { $exists: false } },
+        { $set: { locationStatus: "requested" } },
       );
 
       await User.updateMany(

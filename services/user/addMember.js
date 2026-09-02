@@ -24,6 +24,7 @@ const {
   extractLocationPayload,
   normalizeLocationInput,
   formatMemberLocationResponse,
+  resolveLocationStatus,
 } = require("../../utils/location");
 
 const buildFamilyName = async (familyId) => {
@@ -52,7 +53,7 @@ const buildMemberResponse = ({
     avatarColor: parentUser.avatarColor,
     image: parentUser.image,
     location: formatMemberLocationResponse(parentUser.location),
-    location_requested: Boolean(parentUser.locationRequested),
+    location_status: resolveLocationStatus(parentUser),
     invitation: buildInvitationDetails(parentUser),
     familyName: familyName || "",
     isProfileCompleted: parentUser.isProfileCompleted,

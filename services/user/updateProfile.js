@@ -18,6 +18,8 @@ const {
   normalizeLocationInput,
   formatLocationResponse,
   hasValidCoordinates,
+  LOCATION_STATUS,
+  resolveLocationStatus,
 } = require("../../utils/location");
 const { getDashboardAudienceForParent } = require("../dashboard/audience");
 const { notifyDashboardUpdates } = require("../dashboard/publisher");
@@ -308,7 +310,7 @@ const updateProfileService = async (userId, payload, files = []) => {
       requireCoordinates: true,
     });
     if (hasValidCoordinates(updates.location)) {
-      updates.locationRequested = false;
+      updates.locationStatus = LOCATION_STATUS.COMPLETED;
       locationWasUpdated = true;
     }
   }
@@ -367,7 +369,7 @@ const updateProfileService = async (userId, payload, files = []) => {
 
   if (locationWasUpdated && user.role === "parent") {
     const dashboardAudience = await getDashboardAudienceForParent(user._id);
-    await notifyDashboardUpdates(dashboardAudience, "location_requested");
+    await notifyDashboardUpdates(dashboardAudience, "location_status");
   }
 
   if (imageFile && previousImage) {
@@ -385,8 +387,8 @@ const updateProfileService = async (userId, payload, files = []) => {
     image: user.image,
     avatarColor: user.avatarColor,
     location: formatLocationResponse(user.location),
-    location_requested:
-      user.role === "parent" ? Boolean(user.locationRequested) : undefined,
+    location_status:
+      user.role === "parent" ? resolveLocationStatus(user) : undefined,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     hasPassword: Boolean(user.password),

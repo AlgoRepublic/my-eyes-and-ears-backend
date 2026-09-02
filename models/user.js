@@ -96,9 +96,10 @@ const userSchema = new mongoose.Schema(
       type: userLocationSchema,
       default: null,
     },
-    locationRequested: {
-      type: Boolean,
-      default: true,
+    locationStatus: {
+      type: String,
+      enum: ["requested", "completed", "cancelled"],
+      default: "requested",
     },
     sosStatus: {
       type: String,

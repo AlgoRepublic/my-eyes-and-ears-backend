@@ -1,5 +1,9 @@
 const User = require("../../models/user");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  LOCATION_STATUS,
+  resolveLocationStatus,
+} = require("../../utils/location");
 const { getFamilyIdOrThrow } = require("../family/familyAccess");
 const { buildParentRecentData } = require("../user/buildParentRecentData");
 const { buildMembersListResponse } = require("../user/buildMembersListResponse");
@@ -132,9 +136,9 @@ const buildRecentNearestPassedCheckinPayload = async (user) => {
   return { nearestPassedCheckin: null };
 };
 
-const buildLocationRequestedPayload = async (user) => {
+const buildLocationStatusPayload = async (user) => {
   if (user.role === "parent") {
-    return { location_requested: Boolean(user.locationRequested) };
+    return { location_status: resolveLocationStatus(user) };
   }
 
   if (user.role === "caregiver") {
@@ -142,12 +146,12 @@ const buildLocationRequestedPayload = async (user) => {
     return {
       members: members.map((member) => ({
         userId: String(member._id),
-        location_requested: Boolean(member.locationRequested),
+        location_status: resolveLocationStatus(member),
       })),
     };
   }
 
-  return { location_requested: false };
+  return { location_status: LOCATION_STATUS.REQUESTED };
 };
 
 const buildSosStatusPayload = async (user) => {
@@ -175,7 +179,7 @@ const DASHBOARD_EVENT_BUILDERS = {
   "recentData:appointment": buildRecentAppointmentPayload,
   "recentData:upcomingCheckin": buildRecentUpcomingCheckinPayload,
   "recentData:nearestPassedCheckin": buildRecentNearestPassedCheckinPayload,
-  location_requested: buildLocationRequestedPayload,
+  location_status: buildLocationStatusPayload,
   "recentData:sosStatus": buildSosStatusPayload,
 };
 
@@ -202,6 +206,6 @@ module.exports = {
   buildRecentAppointmentPayload,
   buildRecentUpcomingCheckinPayload,
   buildRecentNearestPassedCheckinPayload,
-  buildLocationRequestedPayload,
+  buildLocationStatusPayload,
   buildSosStatusPayload,
 };

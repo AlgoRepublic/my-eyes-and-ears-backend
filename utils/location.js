@@ -256,11 +256,91 @@ const formatMemberLocationResponse = (location) => {
   return location.address ?? null;
 };
 
+const LOCATION_STATUS = {
+  REQUESTED: "requested",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+const LOCATION_STATUS_VALUES = Object.values(LOCATION_STATUS);
+
+/**
+ * Normalize API/DB location status. Accepts the string enum and legacy booleans
+ * (true → requested, false → completed) during migration.
+ */
+const normalizeLocationStatus = (value, fieldName = "location_status") => {
+  if (typeof value === "boolean") {
+    return value ? LOCATION_STATUS.REQUESTED : LOCATION_STATUS.COMPLETED;
+  }
+
+  if (typeof value === "number") {
+    if (value === 1) return LOCATION_STATUS.REQUESTED;
+    if (value === 0) return LOCATION_STATUS.COMPLETED;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") {
+      return LOCATION_STATUS.REQUESTED;
+    }
+    if (normalized === "false" || normalized === "0") {
+      return LOCATION_STATUS.COMPLETED;
+    }
+    if (LOCATION_STATUS_VALUES.includes(normalized)) {
+      return normalized;
+    }
+  }
+
+  throw new CustomError(
+    `${fieldName} must be one of: ${LOCATION_STATUS_VALUES.join(", ")}`,
+    [],
+    400,
+  );
+};
+
+const resolveLocationStatus = (userOrStatus) => {
+  if (
+    userOrStatus &&
+    typeof userOrStatus === "object" &&
+    !Array.isArray(userOrStatus)
+  ) {
+    if (userOrStatus.locationStatus !== undefined) {
+      try {
+        return normalizeLocationStatus(userOrStatus.locationStatus);
+      } catch (_error) {
+        return LOCATION_STATUS.REQUESTED;
+      }
+    }
+
+    if (userOrStatus.locationRequested !== undefined) {
+      return userOrStatus.locationRequested
+        ? LOCATION_STATUS.REQUESTED
+        : LOCATION_STATUS.COMPLETED;
+    }
+
+    return LOCATION_STATUS.REQUESTED;
+  }
+
+  if (userOrStatus === undefined || userOrStatus === null) {
+    return LOCATION_STATUS.REQUESTED;
+  }
+
+  try {
+    return normalizeLocationStatus(userOrStatus);
+  } catch (_error) {
+    return LOCATION_STATUS.REQUESTED;
+  }
+};
+
 module.exports = {
   LOCATION_FIELDS,
+  LOCATION_STATUS,
+  LOCATION_STATUS_VALUES,
   extractLocationPayload,
   normalizeLocationInput,
   hasValidCoordinates,
   formatLocationResponse,
   formatMemberLocationResponse,
+  normalizeLocationStatus,
+  resolveLocationStatus,
 };

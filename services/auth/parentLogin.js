@@ -8,7 +8,10 @@ const { CustomError } = require("../../utils/error");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 const { buildParentRecentData } = require("../user/buildParentRecentData");
 const { buildFamilyDetailsResponse } = require("../user/getFamilyDetails");
-const { formatLocationResponse } = require("../../utils/location");
+const {
+  formatLocationResponse,
+  resolveLocationStatus,
+} = require("../../utils/location");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -97,7 +100,7 @@ const parentLoginService = async (invitationCode, role, fcmToken) => {
       hasPassword: Boolean(parentUser.password),
       location,
       location_updated_at: formatLocationUpdatedAt(parentUser.location),
-      location_requested: Boolean(parentUser.locationRequested),
+      location_status: resolveLocationStatus(parentUser),
       createdAt: parentUser.createdAt,
       updatedAt: parentUser.updatedAt,
       accessibilities: profileSetting
