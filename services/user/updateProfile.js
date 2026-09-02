@@ -19,6 +19,7 @@ const {
   formatLocationResponse,
   hasValidCoordinates,
   LOCATION_STATUS,
+  normalizeLocationStatus,
   resolveLocationStatus,
 } = require("../../utils/location");
 const { getDashboardAudienceForParent } = require("../dashboard/audience");
@@ -305,6 +306,7 @@ const updateProfileService = async (userId, payload, files = []) => {
 
   const locationPayload = extractLocationPayload(payload);
   let locationWasUpdated = false;
+  let locationStatusChanged = false;
   if (locationPayload !== undefined) {
     updates.location = normalizeLocationInput(locationPayload, {
       requireCoordinates: true,
@@ -313,6 +315,19 @@ const updateProfileService = async (userId, payload, files = []) => {
       updates.locationStatus = LOCATION_STATUS.IDLE;
       locationWasUpdated = true;
     }
+  }
+
+  const locationStatusInput =
+    payload?.location_status !== undefined
+      ? payload.location_status
+      : payload?.locationStatus;
+  if (locationStatusInput !== undefined) {
+    updates.locationStatus = normalizeLocationStatus(
+      locationStatusInput,
+      "location_status",
+    );
+    locationStatusChanged =
+      resolveLocationStatus(user) !== updates.locationStatus;
   }
 
   const fcmToken =
@@ -367,7 +382,7 @@ const updateProfileService = async (userId, payload, files = []) => {
     await user.save();
   }
 
-  if (locationWasUpdated && user.role === "parent") {
+  if ((locationWasUpdated || locationStatusChanged) && user.role === "parent") {
     const dashboardAudience = await getDashboardAudienceForParent(user._id);
     await notifyDashboardUpdates(dashboardAudience, "location_status");
   }
