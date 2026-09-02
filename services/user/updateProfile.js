@@ -21,6 +21,7 @@ const {
 } = require("../../utils/location");
 const { getDashboardAudienceForParent } = require("../dashboard/audience");
 const { notifyDashboardUpdates } = require("../dashboard/publisher");
+const { addFcmTokenToUser } = require("../auth/fcmToken");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
@@ -312,10 +313,19 @@ const updateProfileService = async (userId, payload, files = []) => {
     }
   }
 
+  const fcmToken =
+    payload?.fcmToken !== undefined ? payload.fcmToken : payload?.fcm_token;
+  const hasFcmTokenInput =
+    fcmToken !== undefined && String(fcmToken || "").trim() !== "";
+  const fcmTokenAdded = hasFcmTokenInput
+    ? addFcmTokenToUser(user, fcmToken)
+    : false;
+
   if (
     Object.keys(updates).length === 0 &&
     Object.keys(notificationSettingUpdates).length === 0 &&
-    Object.keys(parentProfileSettingUpdates).length === 0
+    Object.keys(parentProfileSettingUpdates).length === 0 &&
+    !hasFcmTokenInput
   ) {
     throw new CustomError("No valid profile fields provided", [], 400);
   }
@@ -350,7 +360,7 @@ const updateProfileService = async (userId, payload, files = []) => {
     await profileSetting.save();
   }
 
-  if (Object.keys(updates).length > 0) {
+  if (Object.keys(updates).length > 0 || fcmTokenAdded || hasFcmTokenInput) {
     Object.assign(user, updates);
     await user.save();
   }
