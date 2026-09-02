@@ -26,16 +26,16 @@ const buildFamilyDetailsResponse = async (currentUser, familyId) => {
   const members = familyUsers.filter((item) => item.role === "parent");
   const caregivers = familyUsers.filter((item) => item.role === "caregiver");
 
-  const membersResponse = await buildMembersListResponse(members, {
-    includeMedicationCount: true,
-  });
-
-  const { familyConversation, individualConversationsByMemberId } =
-    await getConversationSummariesForMembers(currentUser, members);
+  const [membersResponse, { individualConversationsByMemberId }] =
+    await Promise.all([
+      buildMembersListResponse(members, {
+        includeMedicationCount: true,
+      }),
+      getConversationSummariesForMembers(currentUser, members),
+    ]);
 
   const membersWithConversations = membersResponse.map((member) => ({
     ...member,
-    familyConversation,
     individualConversation:
       individualConversationsByMemberId.get(String(member.id)) || null,
   }));
@@ -46,7 +46,6 @@ const buildFamilyDetailsResponse = async (currentUser, familyId) => {
     memberCount: members.length,
     caregiverCount: caregivers.length,
     members: membersWithConversations,
-    familyConversation,
     caregivers: caregivers.map((caregiverUser) => ({
       id: caregiverUser._id,
       familyName: buildFamilyName(family),
