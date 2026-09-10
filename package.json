@@ -8,7 +8,7 @@
     "start-staging": "NODE_ENV=staging node index.js",
     "worker:notifications": "NODE_ENV=development node workers/notification.worker.js",
     "scheduler:notifications": "NODE_ENV=development node workers/notification.scheduler.js",
-    "test": "node --test tests/notification.test.js"
+    "test": "node --test tests/notification.test.js tests/chat.test.js"
   },
   "author": "",
   "license": "ISC",
@@ -33,6 +33,7 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.13",
     "nodemon": "^3.1.11",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "socket.io": "^4.8.3"
   }
 }

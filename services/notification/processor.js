@@ -5,7 +5,6 @@ const {
   sendNotificationToUser,
   isRetryableError,
 } = require("./sender");
-
 const claimNotificationForProcessing = async (notificationId) => {
   return Notification.findOneAndUpdate(
     {

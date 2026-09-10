@@ -10,6 +10,8 @@ const {
   getDashboardAppointments,
 } = require("../appointment/dashboardAppointments");
 const { getUtcDateTimeFromDateAndTime } = require("../../utils/utcDateTime");
+const User = require("../../models/user");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
 const pickNearestUpcomingAppointment = (
   appointments = [],
@@ -42,11 +44,16 @@ const pickNearestUpcomingAppointment = (
 };
 
 const buildParentRecentData = async (userId) => {
-  const [medications, todayCheckins, dashboardAppointments] = await Promise.all([
-    getTodayMedicationResponse(userId),
-    getTodayCheckinResponse(userId),
-    getDashboardAppointments(userId),
-  ]);
+  const [medications, todayCheckins, dashboardAppointments, parentUser] =
+    await Promise.all([
+      getTodayMedicationResponse(userId),
+      getTodayCheckinResponse(userId),
+      getDashboardAppointments(userId),
+      User.findOne({
+        _id: userId,
+        ...ACTIVE_USER_FILTER,
+      }).select("sosStatus"),
+    ]);
 
   const now = new Date();
   const upcomingMedication = pickNearestUpcomingMedication(medications, now);
@@ -65,7 +72,7 @@ const buildParentRecentData = async (userId) => {
         upcomingAppointment ||
         dashboardAppointments?.upcomingAppointment ||
         null,
-      sosStatus: null,
+      sosStatus: parentUser?.sosStatus || null,
     },
     medicationDuesCount: medications.filter(
       (medication) => medication?.status !== "taken",

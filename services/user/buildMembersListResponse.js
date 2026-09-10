@@ -166,7 +166,7 @@ const buildMembersListResponse = async (
           memberResponse.appointments,
           now,
         ),
-        sosStatus: null,
+        sosStatus: member.sosStatus || null,
       },
     };
   });

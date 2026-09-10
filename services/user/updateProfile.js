@@ -13,6 +13,18 @@ const {
 } = require("./caregiverNotificationSettings");
 const { buildParentRecentData } = require("./buildParentRecentData");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  extractLocationPayload,
+  normalizeLocationInput,
+  formatLocationResponse,
+  hasValidCoordinates,
+  LOCATION_STATUS,
+  normalizeLocationStatus,
+  resolveLocationStatus,
+} = require("../../utils/location");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
+const { addFcmTokenToUser } = require("../auth/fcmToken");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
@@ -292,10 +304,45 @@ const updateProfileService = async (userId, payload, files = []) => {
     updates.image = await saveProfileImage(imageFile, userId);
   }
 
+  const locationPayload = extractLocationPayload(payload);
+  let locationWasUpdated = false;
+  let locationStatusChanged = false;
+  if (locationPayload !== undefined) {
+    updates.location = normalizeLocationInput(locationPayload, {
+      requireCoordinates: true,
+    });
+    if (hasValidCoordinates(updates.location)) {
+      updates.locationStatus = LOCATION_STATUS.IDLE;
+      locationWasUpdated = true;
+    }
+  }
+
+  const locationStatusInput =
+    payload?.location_status !== undefined
+      ? payload.location_status
+      : payload?.locationStatus;
+  if (locationStatusInput !== undefined) {
+    updates.locationStatus = normalizeLocationStatus(
+      locationStatusInput,
+      "location_status",
+    );
+    locationStatusChanged =
+      resolveLocationStatus(user) !== updates.locationStatus;
+  }
+
+  const fcmToken =
+    payload?.fcmToken !== undefined ? payload.fcmToken : payload?.fcm_token;
+  const hasFcmTokenInput =
+    fcmToken !== undefined && String(fcmToken || "").trim() !== "";
+  const fcmTokenAdded = hasFcmTokenInput
+    ? addFcmTokenToUser(user, fcmToken)
+    : false;
+
   if (
     Object.keys(updates).length === 0 &&
     Object.keys(notificationSettingUpdates).length === 0 &&
-    Object.keys(parentProfileSettingUpdates).length === 0
+    Object.keys(parentProfileSettingUpdates).length === 0 &&
+    !hasFcmTokenInput
   ) {
     throw new CustomError("No valid profile fields provided", [], 400);
   }
@@ -330,9 +377,14 @@ const updateProfileService = async (userId, payload, files = []) => {
     await profileSetting.save();
   }
 
-  if (Object.keys(updates).length > 0) {
+  if (Object.keys(updates).length > 0 || fcmTokenAdded || hasFcmTokenInput) {
     Object.assign(user, updates);
     await user.save();
+  }
+
+  if ((locationWasUpdated || locationStatusChanged) && user.role === "parent") {
+    const dashboardAudience = await getDashboardAudienceForParent(user._id);
+    await notifyDashboardUpdates(dashboardAudience, "location_status");
   }
 
   if (imageFile && previousImage) {
@@ -349,6 +401,9 @@ const updateProfileService = async (userId, payload, files = []) => {
     familyName: resolvedFamilyName,
     image: user.image,
     avatarColor: user.avatarColor,
+    location: formatLocationResponse(user.location),
+    location_status:
+      user.role === "parent" ? resolveLocationStatus(user) : undefined,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     hasPassword: Boolean(user.password),

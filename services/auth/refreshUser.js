@@ -8,6 +8,10 @@ const {
 } = require("../user/caregiverNotificationSettings");
 const { buildParentRecentData } = require("../user/buildParentRecentData");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  formatLocationResponse,
+  resolveLocationStatus,
+} = require("../../utils/location");
 
 const signAccessToken = (user) => {
   return jwt.sign({ id: user.id, type: "access" }, process.env.JWT_SECRET, {
@@ -82,6 +86,9 @@ const buildUserResponse = async (user) => {
     relation: user.relation,
     caregiverId: user.caregiverId,
     familyInvitationCode: user.familyInvitationCode,
+    location: formatLocationResponse(user.location),
+    location_status:
+      user.role === "parent" ? resolveLocationStatus(user) : undefined,
     isEmailVerified: user.isEmailVerified,
     isProfileCompleted: user.isProfileCompleted,
     hasPassword: Boolean(user.password),

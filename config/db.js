@@ -11,6 +11,99 @@ const connectDB = async () => {
         { isDeleted: { $exists: false } },
         { $set: { isDeleted: false } },
       );
+
+      // Legacy user.location was a plain address string; convert to object shape.
+      const legacyLocationUsers = await User.find({
+        location: { $type: "string" },
+      }).select("_id location");
+
+      for (const legacyUser of legacyLocationUsers) {
+        const address = String(legacyUser.location || "").trim();
+        await User.updateOne(
+          { _id: legacyUser._id },
+          {
+            $set: {
+              location: address
+                ? {
+                    latitude: null,
+                    longitude: null,
+                    accuracy: null,
+                    address,
+                    city: null,
+                    state: null,
+                    country: null,
+                    postalCode: null,
+                    updatedAt: new Date(),
+                  }
+                : null,
+            },
+          },
+        );
+      }
+
+      if (legacyLocationUsers.length > 0) {
+        console.log(
+          `✅ Migrated ${legacyLocationUsers.length} legacy string location(s)`,
+        );
+      }
+
+      // Migrate legacy boolean locationRequested → string locationStatus.
+      const migratedRequested = await User.updateMany(
+        {
+          locationRequested: true,
+          locationStatus: { $exists: false },
+        },
+        { $set: { locationStatus: "requested" } },
+      );
+      const migratedIdle = await User.updateMany(
+        {
+          locationRequested: false,
+          locationStatus: { $exists: false },
+        },
+        { $set: { locationStatus: "idle" } },
+      );
+
+      if (
+        migratedRequested.modifiedCount > 0 ||
+        migratedIdle.modifiedCount > 0
+      ) {
+        console.log(
+          `✅ Migrated locationRequested → locationStatus (requested: ${migratedRequested.modifiedCount}, idle: ${migratedIdle.modifiedCount})`,
+        );
+      }
+
+      await User.updateMany(
+        { locationRequested: { $exists: true } },
+        { $unset: { locationRequested: "" } },
+      );
+
+      // Parents who already shared GPS and are still "requested" → idle.
+      const clearedLocationRequest = await User.updateMany(
+        {
+          role: "parent",
+          "location.latitude": { $type: "number" },
+          "location.longitude": { $type: "number" },
+          locationStatus: "requested",
+        },
+        { $set: { locationStatus: "idle" } },
+      );
+
+      if (clearedLocationRequest.modifiedCount > 0) {
+        console.log(
+          `✅ Cleared locationStatus for ${clearedLocationRequest.modifiedCount} parent(s) with GPS`,
+        );
+      }
+
+      await User.updateMany(
+        { locationStatus: { $exists: false } },
+        { $set: { locationStatus: "idle" } },
+      );
+
+      await User.updateMany(
+        { sosStatus: { $exists: false } },
+        { $set: { sosStatus: null } },
+      );
+
       await User.syncIndexes();
       console.log("✅ User indexes synced");
     } catch (indexError) {

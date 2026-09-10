@@ -42,10 +42,14 @@ const updateMedicationStatus = require("../controllers/api/v1/users/updateMedica
 const updateCheckinStatus = require("../controllers/api/v1/users/updateCheckinStatus");
 const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppointmentStatus");
 const remindParent = require("../controllers/api/v1/users/remindParent");
+const updateSosStatus = require("../controllers/api/v1/users/updateSosStatus");
+const requestLocation = require("../controllers/api/v1/users/requestLocation");
 
 router.use(protect);
 router.patch("/update", updateProfile);
 router.patch("/profile", updateProfile);
+router.patch("/sos", updateSosStatus);
+router.patch("/sos/status", updateSosStatus);
 router.delete("/profile", deleteProfile);
 router.delete("/deleteProfile", deleteProfile);
 router.post("/addMember", addMember);
@@ -57,6 +61,8 @@ router.get("/getMembers", getMembers);
 router.get("/member/:userId", getMemberDetail);
 router.get("/getMemberDetail/:userId", getMemberDetail);
 router.patch("/members/:userId", updateMember);
+router.post("/members/:userId/location/request", requestLocation);
+router.post("/members/:userId/request-location", requestLocation);
 // ==================checkins start==================
 router.get("/checkins/today", getTodayCheckins);
 router.get("/checkins/history", getCheckinsWithHistory);

@@ -8,6 +8,14 @@ const {
 const { ensureParentMemberOrThrow } = require("./memberAccess");
 const { getMemberDetailService } = require("./getMemberDetail");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const {
+  extractLocationPayload,
+  normalizeLocationInput,
+  normalizeLocationStatus,
+  resolveLocationStatus,
+} = require("../../utils/location");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const normalizeOptionalString = (value) => {
   if (value === undefined) return undefined;
@@ -90,7 +98,28 @@ const updateMemberService = async (
   }
 
   if (payload.location !== undefined) {
-    updates.location = normalizeOptionalString(payload.location);
+    const locationPayload = extractLocationPayload(payload);
+    updates.location = normalizeLocationInput(locationPayload, {
+      requireCoordinates: false,
+    });
+  }
+
+  const locationStatusInput =
+    payload.location_status !== undefined
+      ? payload.location_status
+      : payload.locationStatus !== undefined
+        ? payload.locationStatus
+        : payload.location_requested !== undefined
+          ? payload.location_requested
+          : payload.locationRequested;
+  let locationStatusChanged = false;
+  if (locationStatusInput !== undefined) {
+    updates.locationStatus = normalizeLocationStatus(
+      locationStatusInput,
+      "location_status",
+    );
+    locationStatusChanged =
+      resolveLocationStatus(parentUser) !== updates.locationStatus;
   }
 
   if (payload.familyName !== undefined) {
@@ -134,6 +163,13 @@ const updateMemberService = async (
   Object.assign(parentUser, updates);
   // parentUser.isProfileCompleted = Boolean(parentUser.familyName);
   await parentUser.save();
+
+  if (locationStatusChanged) {
+    const dashboardAudience = await getDashboardAudienceForParent(
+      parentUser._id,
+    );
+    await notifyDashboardUpdates(dashboardAudience, "location_status");
+  }
 
   if (Object.keys(accessibilityUpdates).length > 0) {
     const profileSetting = await ProfileSetting.findOne({

@@ -4,6 +4,11 @@ const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
 const { ensureParentUserAccessOrThrow } = require("../user/memberAccess");
 const {
+  createActionNotificationsForParent,
+} = require("../notification/notification.service");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
+const {
   getUtcDateTimeForTodayCheckin,
   getUtcStartOfDay,
   getUtcEndOfDayExclusive,
@@ -457,7 +462,7 @@ const updateCheckinStatusService = async ({
     _id: checkinId,
     userId: parentUser._id,
     isEnabled: true,
-  }).select("_id userId");
+  }).select("_id userId label");
 
   if (!checkinReminder) {
     throw new CustomError("Checkin reminder not found", [], 404);
@@ -516,6 +521,27 @@ const updateCheckinStatusService = async ({
   const changedByUser = await User.findById(changedById)
     .select("name role email")
     .lean();
+
+  await createActionNotificationsForParent({
+    parentUserId: parentUser._id,
+    senderId: changedById,
+    type: "checkinReminder",
+    referenceId: checkinReminder._id,
+    title: "Check-in status updated",
+    body: `${parentUser.name} marked ${checkinReminder.label || "a check-in"} as ${history.status}.`,
+    data: {
+      type: "checkin_status",
+      checkinId: String(checkinReminder._id),
+      parentUserId: String(parentUser._id),
+      status: history.status,
+    },
+  });
+
+  const dashboardAudience = await getDashboardAudienceForParent(parentUser._id);
+  await Promise.all([
+    notifyDashboardUpdates(dashboardAudience, "recentData:upcomingCheckin"),
+    notifyDashboardUpdates(dashboardAudience, "recentData:nearestPassedCheckin"),
+  ]);
 
   return {
     checkinId: history.checkinReminderId,
