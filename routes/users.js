@@ -44,6 +44,13 @@ const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppoi
 const remindParent = require("../controllers/api/v1/users/remindParent");
 const updateSosStatus = require("../controllers/api/v1/users/updateSosStatus");
 const requestLocation = require("../controllers/api/v1/users/requestLocation");
+const {
+  listHistory,
+  createScanHistory,
+  createTranslationHistory,
+  createMagnifierHistory,
+  deleteHistoryItem,
+} = require("../controllers/api/v1/users/history");
 
 router.use(protect);
 router.patch("/update", updateProfile);
@@ -120,5 +127,13 @@ router.patch("/appointments/status", updateAppointmentStatus);
 router.patch("/appointment/status", updateAppointmentStatus);
 router.post("/members/:userId/remind", remindParent);
 router.post("/parents/remind", remindParent);
+
+// ==================history start==================
+router.get("/history", listHistory);
+router.post("/history/scan", createScanHistory);
+router.post("/history/translation", createTranslationHistory);
+router.post("/history/magnifier", createMagnifierHistory);
+router.delete("/history/:id", deleteHistoryItem);
+// ==================history end==================
 
 module.exports = router;
