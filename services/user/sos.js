@@ -11,8 +11,16 @@ const {
 const {
   createActionNotificationsForParent,
 } = require("../notification/notification.service");
-const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const {
+  getDashboardAudienceForParent,
+  getCaregiverAudienceForParent,
+} = require("../dashboard/audience");
 const { notifyDashboardUpdates } = require("../dashboard/publisher");
+const {
+  buildMemberSosStatusSocketPayload,
+  buildSosFcmData,
+  toIsoString,
+} = require("./sosFormat");
 
 const SOS_ACTIVE = "active";
 const SOS_CANCELLED = "cancelled";
@@ -58,7 +66,11 @@ const resolveSosLocation = (payload, parentUser) => {
 
 const getParentSelfOrThrow = async (currentUser, userIdFromPayload) => {
   if (currentUser.role !== "parent") {
-    throw new CustomError("Only loved ones can manage their own SOS alerts", [], 403);
+    throw new CustomError(
+      "Only loved ones can manage their own SOS alerts",
+      [],
+      403,
+    );
   }
 
   const currentUserId = String(currentUser._id || currentUser.id);
@@ -85,36 +97,88 @@ const getParentSelfOrThrow = async (currentUser, userIdFromPayload) => {
   return parentUser;
 };
 
+const getCaregiverMemberOrThrow = async (currentUser, memberId) => {
+  if (currentUser.role !== "caregiver") {
+    throw new CustomError("Only caregivers can manage member SOS alerts", [], 403);
+  }
+
+  try {
+    return await ensureParentMemberOrThrow(currentUser, memberId);
+  } catch (error) {
+    if (
+      error instanceof CustomError &&
+      (error.statusCode === 404 ||
+        error.message === "Parent member not found")
+    ) {
+      throw new CustomError("You do not have access to this member", [], 403);
+    }
+    throw error;
+  }
+};
+
 const findActiveSosForUser = async (userId) =>
   Sos.findOne({ userId, status: SOS_ACTIVE });
 
-const notifySosCaregivers = async ({
+const notifySosAction = async ({
   parentUser,
   senderId,
   referenceId,
   title,
   body,
   sosStatus,
+  createdAt,
+  location,
 }) => {
   await createActionNotificationsForParent({
     parentUserId: parentUser._id,
     senderId,
-    type: "sos",
+    type: "SOS",
     referenceId,
     title,
     body,
-    data: {
-      type: "sos_status",
-      parentUserId: String(parentUser._id),
+    data: buildSosFcmData({
+      memberId: parentUser._id,
       sosStatus,
-    },
+      createdAt,
+      location,
+    }),
     bypassDoNotDisturb: true,
   });
 };
 
-const emitSosDashboardUpdate = async (parentUserId) => {
+const emitLovedOneSosDashboardUpdate = async (parentUserId) => {
   const dashboardAudience = await getDashboardAudienceForParent(parentUserId);
   await notifyDashboardUpdates(dashboardAudience, "recentData:sosStatus");
+};
+
+const emitCaregiverMemberSosStatus = async (parentUserId, sos, sosStatus) => {
+  const caregiverAudience = await getCaregiverAudienceForParent(parentUserId);
+  if (!caregiverAudience.length) {
+    return;
+  }
+
+  const payload = await buildMemberSosStatusSocketPayload(sos, sosStatus);
+  await notifyDashboardUpdates(
+    caregiverAudience,
+    "member:sosStatus",
+    payload,
+  );
+};
+
+const emitCaregiverSosAcknowledgement = async (
+  parentUserId,
+  acknowledgementPayload,
+) => {
+  const caregiverAudience = await getCaregiverAudienceForParent(parentUserId);
+  if (!caregiverAudience.length) {
+    return;
+  }
+
+  await notifyDashboardUpdates(
+    caregiverAudience,
+    "sos:acknowledgement",
+    acknowledgementPayload,
+  );
 };
 
 const triggerSosService = async (currentUser, payload = {}) => {
@@ -137,6 +201,7 @@ const triggerSosService = async (currentUser, payload = {}) => {
       familyId: parentUser.familyId || null,
       status: SOS_ACTIVE,
       location,
+      acknowledgements: [],
       triggeredBy: parentUser._id,
     });
   } catch (error) {
@@ -149,16 +214,19 @@ const triggerSosService = async (currentUser, payload = {}) => {
   parentUser.sosStatus = SOS_ACTIVE;
   await parentUser.save();
 
-  await notifySosCaregivers({
+  await notifySosAction({
     parentUser,
     senderId: parentUser._id,
     referenceId: sos._id,
     title: "SOS alert",
     body: `${parentUser.name} triggered an SOS alert.`,
     sosStatus: SOS_ACTIVE,
+    createdAt: sos.createdAt,
+    location: sos.location,
   });
 
-  await emitSosDashboardUpdate(parentUser._id);
+  await emitLovedOneSosDashboardUpdate(parentUser._id);
+  await emitCaregiverMemberSosStatus(parentUser._id, sos, SOS_ACTIVE);
 
   return {
     sosId: sos._id,
@@ -184,16 +252,32 @@ const cancelSosService = async (currentUser, payload = {}) => {
   parentUser.sosStatus = null;
   await parentUser.save();
 
-  await notifySosCaregivers({
+  const sosForEmit =
+    activeSos ||
+    ({
+      userId: parentUser._id,
+      createdAt: new Date(),
+      location: null,
+      acknowledgements: [],
+    });
+
+  await notifySosAction({
     parentUser,
     senderId: parentUser._id,
     referenceId: activeSos?._id || parentUser._id,
     title: "SOS cancelled",
     body: `${parentUser.name} cancelled their SOS alert.`,
-    sosStatus: null,
+    sosStatus: SOS_CANCELLED,
+    createdAt: activeSos?.createdAt || new Date(),
+    location: activeSos?.location || null,
   });
 
-  await emitSosDashboardUpdate(parentUser._id);
+  await emitLovedOneSosDashboardUpdate(parentUser._id);
+  await emitCaregiverMemberSosStatus(
+    parentUser._id,
+    sosForEmit,
+    SOS_CANCELLED,
+  );
 
   return {
     sosId: activeSos?._id || null,
@@ -201,29 +285,47 @@ const cancelSosService = async (currentUser, payload = {}) => {
   };
 };
 
+const acknowledgeSosService = async (currentUser, memberId) => {
+  const parentUser = await getCaregiverMemberOrThrow(currentUser, memberId);
+  const caregiverId = String(currentUser._id || currentUser.id);
+  const activeSos = await findActiveSosForUser(parentUser._id);
+
+  if (!activeSos) {
+    throw new CustomError("No active SOS alert for this member", [], 400);
+  }
+
+  const alreadyAcknowledged = (activeSos.acknowledgements || []).some(
+    (item) => String(item.caregiverId) === caregiverId,
+  );
+
+  if (alreadyAcknowledged) {
+    return { alreadyAcknowledged: true };
+  }
+
+  const acknowledgedAt = new Date();
+  activeSos.acknowledgements.push({
+    caregiverId,
+    acknowledgedAt,
+  });
+  await activeSos.save();
+
+  const acknowledgementPayload = {
+    memberId: String(parentUser._id),
+    caregiverId,
+    status: "acknowledged",
+    acknowledgedAt: toIsoString(acknowledgedAt),
+  };
+
+  await emitCaregiverSosAcknowledgement(parentUser._id, acknowledgementPayload);
+
+  return {
+    alreadyAcknowledged: false,
+    acknowledgement: acknowledgementPayload,
+  };
+};
+
 const resolveSosService = async (currentUser, memberId) => {
-  if (currentUser.role !== "caregiver") {
-    throw new CustomError("Only caregivers can resolve SOS alerts", [], 403);
-  }
-
-  let parentUser;
-  try {
-    parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
-  } catch (error) {
-    if (
-      error instanceof CustomError &&
-      (error.statusCode === 404 ||
-        error.message === "Parent member not found")
-    ) {
-      throw new CustomError(
-        "You do not have access to this member",
-        [],
-        403,
-      );
-    }
-    throw error;
-  }
-
+  const parentUser = await getCaregiverMemberOrThrow(currentUser, memberId);
   const activeSos = await findActiveSosForUser(parentUser._id);
 
   if (!activeSos && parentUser.sosStatus !== SOS_ACTIVE) {
@@ -240,16 +342,28 @@ const resolveSosService = async (currentUser, memberId) => {
   parentUser.sosStatus = null;
   await parentUser.save();
 
-  await notifySosCaregivers({
+  const sosForEmit =
+    activeSos ||
+    ({
+      userId: parentUser._id,
+      createdAt: new Date(),
+      location: null,
+      acknowledgements: [],
+    });
+
+  await notifySosAction({
     parentUser,
     senderId: currentUser._id || currentUser.id,
     referenceId: activeSos?._id || parentUser._id,
     title: "SOS resolved",
     body: `${parentUser.name}'s emergency was marked as resolved.`,
-    sosStatus: null,
+    sosStatus: SOS_RESOLVED,
+    createdAt: activeSos?.createdAt || new Date(),
+    location: activeSos?.location || null,
   });
 
-  await emitSosDashboardUpdate(parentUser._id);
+  await emitLovedOneSosDashboardUpdate(parentUser._id);
+  await emitCaregiverMemberSosStatus(parentUser._id, sosForEmit, SOS_RESOLVED);
 
   return {
     sosId: activeSos?._id || null,
@@ -260,6 +374,7 @@ const resolveSosService = async (currentUser, memberId) => {
 module.exports = {
   triggerSosService,
   cancelSosService,
+  acknowledgeSosService,
   resolveSosService,
   SOS_ACTIVE,
   SOS_CANCELLED,

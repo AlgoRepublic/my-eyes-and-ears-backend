@@ -14,6 +14,10 @@ const {
   pickNearestUpcomingMedication,
 } = require("../medication/medicationHistory");
 const { getUtcDateTimeFromDateAndTime } = require("../../utils/utcDateTime");
+const {
+  buildActiveSosSnapshot,
+  findActiveSosByUserIds,
+} = require("./sosFormat");
 
 const buildFamilyName = async (familyId) => {
   if (!familyId) {
@@ -81,12 +85,14 @@ const buildMembersListResponse = async (
     contacts,
     checkinReminders,
     appointments,
+    activeSosByUserId,
   ] = await Promise.all([
     ProfileSetting.find({ userId: { $in: memberIds } }),
     Medication.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
     Contact.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
     CheckinReminder.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
     Appointment.find({ userId: { $in: memberIds } }).sort({ createdAt: 1 }),
+    findActiveSosByUserIds(memberIds),
   ]);
 
   const profileSettingByUserId = profileSettings.reduce((accumulator, item) => {
@@ -127,49 +133,61 @@ const buildMembersListResponse = async (
   const now = new Date();
   const familyName = await buildFamilyName(members[0]?.familyId);
 
-  return members.map((member) => {
-    const memberMedications = medicationsByUserId.get(String(member._id)) || [];
-    const memberResponse = buildMemberResponse({
-      parentUser: member,
-      familyName,
-      profileSetting: profileSettingByUserId.get(String(member._id)) || null,
-      medications: memberMedications,
-      contacts: contactsByUserId.get(String(member._id)) || [],
-      checkinReminders: remindersByUserId.get(String(member._id)) || [],
-      appointments: appointmentsByUserId.get(String(member._id)) || [],
-    });
+  return Promise.all(
+    members.map(async (member) => {
+      const memberMedications =
+        medicationsByUserId.get(String(member._id)) || [];
+      const memberResponse = buildMemberResponse({
+        parentUser: member,
+        familyName,
+        profileSetting: profileSettingByUserId.get(String(member._id)) || null,
+        medications: memberMedications,
+        contacts: contactsByUserId.get(String(member._id)) || [],
+        checkinReminders: remindersByUserId.get(String(member._id)) || [],
+        appointments: appointmentsByUserId.get(String(member._id)) || [],
+      });
 
-    const {
-      medications: _medications,
-      checkinReminders: _checkinReminders,
-      appointments: _appointments,
-      contacts: _contacts,
-      ...memberResponseWithoutScheduleData
-    } = memberResponse;
+      const {
+        medications: _medications,
+        checkinReminders: _checkinReminders,
+        appointments: _appointments,
+        contacts: _contacts,
+        ...memberResponseWithoutScheduleData
+      } = memberResponse;
 
-    const todayCheckins = todayCheckinsByUserId.get(String(member._id)) || [];
-    const todayMedications =
-      todayMedicationsByUserId.get(String(member._id)) || [];
-    const checkinSummary = buildCheckinSummary(todayCheckins, now);
+      const todayCheckins = todayCheckinsByUserId.get(String(member._id)) || [];
+      const todayMedications =
+        todayMedicationsByUserId.get(String(member._id)) || [];
+      const checkinSummary = buildCheckinSummary(todayCheckins, now);
+      const activeSos = activeSosByUserId.get(String(member._id)) || null;
+      const sosSnapshot = await buildActiveSosSnapshot(activeSos);
 
-    return {
-      ...memberResponseWithoutScheduleData,
-      ...(includeMedicationCount
-        ? { medicationCount: memberMedications.length }
-        : {}),
-      recentData: {
-        upcomingMedication:
-          pickNearestUpcomingMedication(todayMedications, now) || null,
-        upcomingCheckin: checkinSummary.upcomingCheckin,
-        nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
-        upcomingAppointment: pickNearestUpcomingAppointment(
-          memberResponse.appointments,
-          now,
-        ),
-        sosStatus: member.sosStatus || null,
-      },
-    };
-  });
+      return {
+        ...memberResponseWithoutScheduleData,
+        ...(includeMedicationCount
+          ? { medicationCount: memberMedications.length }
+          : {}),
+        recentData: {
+          upcomingMedication:
+            pickNearestUpcomingMedication(todayMedications, now) || null,
+          upcomingCheckin: checkinSummary.upcomingCheckin,
+          nearestPassedCheckin: checkinSummary.nearestPassedCheckin,
+          upcomingAppointment: pickNearestUpcomingAppointment(
+            memberResponse.appointments,
+            now,
+          ),
+          sosStatus: member.sosStatus || sosSnapshot.sosStatus || null,
+          ...(sosSnapshot.sosStatus === "active"
+            ? {
+                sosTriggeredAt: sosSnapshot.sosTriggeredAt,
+                sosLocation: sosSnapshot.sosLocation,
+                sosAcknowledgements: sosSnapshot.sosAcknowledgements,
+              }
+            : {}),
+        },
+      };
+    }),
+  );
 };
 
 module.exports = {

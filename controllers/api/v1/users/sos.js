@@ -2,6 +2,7 @@ const { asyncMiddleware } = require("../../../../middlewares/async");
 const {
   triggerSosService,
   cancelSosService,
+  acknowledgeSosService,
   resolveSosService,
 } = require("../../../../services/user/sos");
 
@@ -25,6 +26,18 @@ const cancelSos = asyncMiddleware(async (req, res, next) => {
   });
 });
 
+const acknowledgeSos = asyncMiddleware(async (req, res, next) => {
+  const result = await acknowledgeSosService(req.user, req.params.userId);
+
+  next({
+    success: true,
+    message: result.alreadyAcknowledged
+      ? "You already acknowledged this alert"
+      : "You acknowledged the emergency alert",
+    statusCode: 200,
+  });
+});
+
 const resolveSos = asyncMiddleware(async (req, res, next) => {
   await resolveSosService(req.user, req.params.userId);
 
@@ -38,5 +51,6 @@ const resolveSos = asyncMiddleware(async (req, res, next) => {
 module.exports = {
   triggerSos,
   cancelSos,
+  acknowledgeSos,
   resolveSos,
 };

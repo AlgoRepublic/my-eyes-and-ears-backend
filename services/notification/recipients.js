@@ -7,6 +7,7 @@ const CAREGIVER_PREF_BY_TYPE = {
   appointment: null,
   checkinReminder: "missedCheckIns",
   sos: "sosAlerts",
+  SOS: "sosAlerts",
 };
 
 const PARENT_PREF_BY_TYPE = {
@@ -14,6 +15,7 @@ const PARENT_PREF_BY_TYPE = {
   appointment: "appointmentsReminders",
   checkinReminder: "dailyCheckInReminders",
   sos: null,
+  SOS: null,
 };
 
 const isNotificationEnabledForUser = (

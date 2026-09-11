@@ -49,6 +49,22 @@ const sosLocationSchema = new mongoose.Schema(
 
 const SOS_STATUSES = ["active", "cancelled", "resolved"];
 
+const sosAcknowledgementSchema = new mongoose.Schema(
+  {
+    caregiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    acknowledgedAt: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+  },
+  { _id: false },
+);
+
 const sosSchema = new mongoose.Schema(
   {
     userId: {
@@ -72,6 +88,10 @@ const sosSchema = new mongoose.Schema(
     location: {
       type: sosLocationSchema,
       default: null,
+    },
+    acknowledgements: {
+      type: [sosAcknowledgementSchema],
+      default: [],
     },
     triggeredBy: {
       type: mongoose.Schema.Types.ObjectId,

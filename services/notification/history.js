@@ -3,7 +3,7 @@ const Notification = require("../../models/notification");
 const { CustomError } = require("../../utils/error");
 
 const API_TYPE_TO_STORED_TYPE = {
-  SOS: "sos",
+  SOS: "SOS",
   CHECKIN: "checkinReminder",
   MEDICATION: "medication",
   MESSAGE: "MESSAGE",
@@ -15,8 +15,10 @@ const STORED_TYPE_TO_API_TYPE = Object.entries(API_TYPE_TO_STORED_TYPE).reduce(
     result[storedType] = apiType;
     return result;
   },
+  {},
 );
 STORED_TYPE_TO_API_TYPE.chat = "MESSAGE";
+STORED_TYPE_TO_API_TYPE.sos = "SOS";
 
 const parsePositiveInteger = (value, name, defaultValue, maximum) => {
   if (value === undefined) {
@@ -119,8 +121,13 @@ const listNotificationHistoryService = async (currentUser, filters = {}) => {
     if (!storedType) {
       throw new CustomError("Invalid notification type", [], 400);
     }
-    query.type =
-      storedType === "MESSAGE" ? { $in: ["MESSAGE", "chat"] } : storedType;
+    if (storedType === "MESSAGE") {
+      query.type = { $in: ["MESSAGE", "chat"] };
+    } else if (storedType === "SOS") {
+      query.type = { $in: ["SOS", "sos"] };
+    } else {
+      query.type = storedType;
+    }
   }
 
   if (filters.senderId !== undefined) {
