@@ -56,13 +56,26 @@ const subscribeDashboardUpdates = (dashboardIo, caregiverDashboardIo = null) => 
       }
 
       if (payload !== undefined) {
-        const targetIo =
+        const isCaregiverSosEvent =
           eventName === "member:sosStatus" ||
-          eventName === "sos:acknowledgement"
-            ? caregiverDashboardIo || dashboardIo
-            : dashboardIo;
+          eventName === "sos:acknowledgement";
 
-        emitDashboardPayloadToUser(targetIo, userId, eventName, payload);
+        if (isCaregiverSosEvent) {
+          // Emit on both namespaces so caregivers get full SOS details
+          // whether they use /dashboardData or /caregiverDashboardData.
+          emitDashboardPayloadToUser(dashboardIo, userId, eventName, payload);
+          if (caregiverDashboardIo) {
+            emitDashboardPayloadToUser(
+              caregiverDashboardIo,
+              userId,
+              eventName,
+              payload,
+            );
+          }
+          return;
+        }
+
+        emitDashboardPayloadToUser(dashboardIo, userId, eventName, payload);
         return;
       }
 

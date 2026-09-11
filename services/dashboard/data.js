@@ -9,6 +9,10 @@ const { buildParentRecentData } = require("../user/buildParentRecentData");
 const { buildMembersListResponse } = require("../user/buildMembersListResponse");
 const { getTotalUnreadCountService } = require("../chat/conversations");
 const { getTodayMedicationResponse } = require("../medication/medicationHistory");
+const {
+  buildActiveSosSnapshot,
+  findActiveSosByUserIds,
+} = require("../user/sosFormat");
 
 const countMedicationDues = (medications = []) =>
   medications.filter((medication) => medication?.status !== "taken").length;
@@ -161,12 +165,40 @@ const buildSosStatusPayload = async (user) => {
 
   if (user.role === "caregiver") {
     const members = await getFamilyMembersForCaregiver(user);
-    return {
-      members: members.map((member) => ({
-        userId: String(member._id),
-        sosStatus: member.sosStatus || null,
-      })),
-    };
+    const activeSosByUserId = await findActiveSosByUserIds(
+      members.map((member) => member._id),
+    );
+
+    const membersPayload = await Promise.all(
+      members.map(async (member) => {
+        const activeSos = activeSosByUserId.get(String(member._id)) || null;
+        const sosSnapshot = await buildActiveSosSnapshot(activeSos);
+        const sosStatus =
+          member.sosStatus || sosSnapshot.sosStatus || null;
+
+        if (sosStatus !== "active") {
+          return {
+            userId: String(member._id),
+            memberId: String(member._id),
+            sosStatus: null,
+          };
+        }
+
+        return {
+          userId: String(member._id),
+          memberId: String(member._id),
+          sosStatus: "active",
+          sosTriggeredAt: sosSnapshot.sosTriggeredAt,
+          sosLocation: sosSnapshot.sosLocation,
+          sosAcknowledgements: sosSnapshot.sosAcknowledgements,
+          createdAt: sosSnapshot.sosTriggeredAt,
+          location: sosSnapshot.sosLocation,
+          acknowledgements: sosSnapshot.sosAcknowledgements,
+        };
+      }),
+    );
+
+    return { members: membersPayload };
   }
 
   return { sosStatus: null };
