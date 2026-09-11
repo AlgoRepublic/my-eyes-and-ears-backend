@@ -1,0 +1,267 @@
+const User = require("../../models/user");
+const Sos = require("../../models/sos");
+const { CustomError } = require("../../utils/error");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const { ensureParentMemberOrThrow } = require("./memberAccess");
+const {
+  extractLocationPayload,
+  normalizeLocationInput,
+  hasValidCoordinates,
+} = require("../../utils/location");
+const {
+  createActionNotificationsForParent,
+} = require("../notification/notification.service");
+const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { notifyDashboardUpdates } = require("../dashboard/publisher");
+
+const SOS_ACTIVE = "active";
+const SOS_CANCELLED = "cancelled";
+const SOS_RESOLVED = "resolved";
+
+const cloneLocation = (location) => {
+  if (!location || typeof location !== "object") {
+    return null;
+  }
+
+  const plain =
+    typeof location.toObject === "function" ? location.toObject() : location;
+
+  return {
+    latitude: plain.latitude ?? null,
+    longitude: plain.longitude ?? null,
+    accuracy: plain.accuracy ?? null,
+    address: plain.address ?? null,
+    city: plain.city ?? null,
+    state: plain.state ?? null,
+    country: plain.country ?? null,
+    postalCode: plain.postalCode ?? null,
+    updatedAt: plain.updatedAt ? new Date(plain.updatedAt) : new Date(),
+  };
+};
+
+const resolveSosLocation = (payload, parentUser) => {
+  const locationPayload = extractLocationPayload(payload);
+  const submitted = normalizeLocationInput(locationPayload, {
+    requireCoordinates: false,
+  });
+
+  if (submitted && hasValidCoordinates(submitted)) {
+    return submitted;
+  }
+
+  if (hasValidCoordinates(parentUser.location)) {
+    return cloneLocation(parentUser.location);
+  }
+
+  return submitted || null;
+};
+
+const getParentSelfOrThrow = async (currentUser, userIdFromPayload) => {
+  if (currentUser.role !== "parent") {
+    throw new CustomError("Only loved ones can manage their own SOS alerts", [], 403);
+  }
+
+  const currentUserId = String(currentUser._id || currentUser.id);
+  const requestedUserId = String(userIdFromPayload || "").trim();
+
+  if (!requestedUserId) {
+    throw new CustomError("userId is required", [], 400);
+  }
+
+  if (requestedUserId !== currentUserId) {
+    throw new CustomError("You can only manage your own SOS alerts", [], 403);
+  }
+
+  const parentUser = await User.findOne({
+    _id: currentUserId,
+    role: "parent",
+    ...ACTIVE_USER_FILTER,
+  });
+
+  if (!parentUser) {
+    throw new CustomError("Parent user not found", [], 404);
+  }
+
+  return parentUser;
+};
+
+const findActiveSosForUser = async (userId) =>
+  Sos.findOne({ userId, status: SOS_ACTIVE });
+
+const notifySosCaregivers = async ({
+  parentUser,
+  senderId,
+  referenceId,
+  title,
+  body,
+  sosStatus,
+}) => {
+  await createActionNotificationsForParent({
+    parentUserId: parentUser._id,
+    senderId,
+    type: "sos",
+    referenceId,
+    title,
+    body,
+    data: {
+      type: "sos_status",
+      parentUserId: String(parentUser._id),
+      sosStatus,
+    },
+    bypassDoNotDisturb: true,
+  });
+};
+
+const emitSosDashboardUpdate = async (parentUserId) => {
+  const dashboardAudience = await getDashboardAudienceForParent(parentUserId);
+  await notifyDashboardUpdates(dashboardAudience, "recentData:sosStatus");
+};
+
+const triggerSosService = async (currentUser, payload = {}) => {
+  const parentUser = await getParentSelfOrThrow(currentUser, payload.userId);
+
+  const existingActive =
+    parentUser.sosStatus === SOS_ACTIVE ||
+    (await findActiveSosForUser(parentUser._id));
+
+  if (existingActive) {
+    throw new CustomError("An SOS alert is already active", [], 400);
+  }
+
+  const location = resolveSosLocation(payload, parentUser);
+  let sos;
+
+  try {
+    sos = await Sos.create({
+      userId: parentUser._id,
+      familyId: parentUser.familyId || null,
+      status: SOS_ACTIVE,
+      location,
+      triggeredBy: parentUser._id,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new CustomError("An SOS alert is already active", [], 400);
+    }
+    throw error;
+  }
+
+  parentUser.sosStatus = SOS_ACTIVE;
+  await parentUser.save();
+
+  await notifySosCaregivers({
+    parentUser,
+    senderId: parentUser._id,
+    referenceId: sos._id,
+    title: "SOS alert",
+    body: `${parentUser.name} triggered an SOS alert.`,
+    sosStatus: SOS_ACTIVE,
+  });
+
+  await emitSosDashboardUpdate(parentUser._id);
+
+  return {
+    sosId: sos._id,
+    sosStatus: SOS_ACTIVE,
+  };
+};
+
+const cancelSosService = async (currentUser, payload = {}) => {
+  const parentUser = await getParentSelfOrThrow(currentUser, payload.userId);
+  const activeSos = await findActiveSosForUser(parentUser._id);
+
+  if (!activeSos && parentUser.sosStatus !== SOS_ACTIVE) {
+    throw new CustomError("No active SOS alert to cancel", [], 400);
+  }
+
+  if (activeSos) {
+    activeSos.status = SOS_CANCELLED;
+    activeSos.cancelledBy = parentUser._id;
+    activeSos.cancelledAt = new Date();
+    await activeSos.save();
+  }
+
+  parentUser.sosStatus = null;
+  await parentUser.save();
+
+  await notifySosCaregivers({
+    parentUser,
+    senderId: parentUser._id,
+    referenceId: activeSos?._id || parentUser._id,
+    title: "SOS cancelled",
+    body: `${parentUser.name} cancelled their SOS alert.`,
+    sosStatus: null,
+  });
+
+  await emitSosDashboardUpdate(parentUser._id);
+
+  return {
+    sosId: activeSos?._id || null,
+    sosStatus: null,
+  };
+};
+
+const resolveSosService = async (currentUser, memberId) => {
+  if (currentUser.role !== "caregiver") {
+    throw new CustomError("Only caregivers can resolve SOS alerts", [], 403);
+  }
+
+  let parentUser;
+  try {
+    parentUser = await ensureParentMemberOrThrow(currentUser, memberId);
+  } catch (error) {
+    if (
+      error instanceof CustomError &&
+      (error.statusCode === 404 ||
+        error.message === "Parent member not found")
+    ) {
+      throw new CustomError(
+        "You do not have access to this member",
+        [],
+        403,
+      );
+    }
+    throw error;
+  }
+
+  const activeSos = await findActiveSosForUser(parentUser._id);
+
+  if (!activeSos && parentUser.sosStatus !== SOS_ACTIVE) {
+    throw new CustomError("No active SOS alert for this member", [], 400);
+  }
+
+  if (activeSos) {
+    activeSos.status = SOS_RESOLVED;
+    activeSos.resolvedBy = currentUser._id || currentUser.id;
+    activeSos.resolvedAt = new Date();
+    await activeSos.save();
+  }
+
+  parentUser.sosStatus = null;
+  await parentUser.save();
+
+  await notifySosCaregivers({
+    parentUser,
+    senderId: currentUser._id || currentUser.id,
+    referenceId: activeSos?._id || parentUser._id,
+    title: "SOS resolved",
+    body: `${parentUser.name}'s emergency was marked as resolved.`,
+    sosStatus: null,
+  });
+
+  await emitSosDashboardUpdate(parentUser._id);
+
+  return {
+    sosId: activeSos?._id || null,
+    sosStatus: null,
+  };
+};
+
+module.exports = {
+  triggerSosService,
+  cancelSosService,
+  resolveSosService,
+  SOS_ACTIVE,
+  SOS_CANCELLED,
+  SOS_RESOLVED,
+};

@@ -43,6 +43,11 @@ const updateCheckinStatus = require("../controllers/api/v1/users/updateCheckinSt
 const updateAppointmentStatus = require("../controllers/api/v1/users/updateAppointmentStatus");
 const remindParent = require("../controllers/api/v1/users/remindParent");
 const updateSosStatus = require("../controllers/api/v1/users/updateSosStatus");
+const {
+  triggerSos,
+  cancelSos,
+  resolveSos,
+} = require("../controllers/api/v1/users/sos");
 const requestLocation = require("../controllers/api/v1/users/requestLocation");
 const {
   listHistory,
@@ -55,8 +60,11 @@ const {
 router.use(protect);
 router.patch("/update", updateProfile);
 router.patch("/profile", updateProfile);
+router.post("/sos", triggerSos);
+router.patch("/sos/cancel", cancelSos);
 router.patch("/sos", updateSosStatus);
 router.patch("/sos/status", updateSosStatus);
+router.patch("/members/:userId/sos/resolve", resolveSos);
 router.delete("/profile", deleteProfile);
 router.delete("/deleteProfile", deleteProfile);
 router.post("/addMember", addMember);

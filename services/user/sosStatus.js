@@ -104,6 +104,7 @@ const updateSosStatusService = async (currentUser, payload = {}) => {
         parentUserId: String(parentUser._id),
         sosStatus: SOS_ACTIVE,
       },
+      bypassDoNotDisturb: true,
     });
   }
 

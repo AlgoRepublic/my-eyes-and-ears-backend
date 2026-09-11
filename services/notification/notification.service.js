@@ -244,10 +244,12 @@ const createActionNotificationsForParent = async ({
   title,
   body,
   data = {},
+  bypassDoNotDisturb = false,
 }) => {
   const recipients = await getNotificationRecipients({
     parentUserId,
     type,
+    bypassDoNotDisturb,
   });
   const actorId = String(senderId);
 
