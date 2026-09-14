@@ -42,6 +42,7 @@ const formatMessage = (message, sender = null) => {
     text: isDeleted ? null : (message.text ?? null),
     attachment: isDeleted ? null : formatAttachment(message.attachment),
     replyToMessageId: message.replyToMessageId ?? null,
+    isThinkingOfYou: Boolean(message.isThinkingOfYou),
     editedAt: message.editedAt ?? null,
     deletedAt: message.deletedAt ?? null,
     isDeleted,

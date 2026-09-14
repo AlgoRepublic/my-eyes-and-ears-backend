@@ -8,6 +8,7 @@ const getFamilyDetails = require("../controllers/api/v1/users/getFamilyDetails")
 const updateMember = require("../controllers/api/v1/users/updateMember");
 const getMembers = require("../controllers/api/v1/users/getMembers");
 const getMemberDetail = require("../controllers/api/v1/users/getMemberDetail");
+const getWeeklyDigest = require("../controllers/api/v1/users/weeklyDigest");
 const {
   getTodayCheckins,
   getCheckinsWithHistory,
@@ -77,6 +78,7 @@ router.get("/getFamilyDetail", getFamilyDetails);
 router.get("/family/details", getFamilyDetails);
 router.get("/members", getMembers);
 router.get("/getMembers", getMembers);
+router.get("/digest/weekly", getWeeklyDigest);
 router.get("/member/:userId", getMemberDetail);
 router.get("/getMemberDetail/:userId", getMemberDetail);
 router.patch("/members/:userId", updateMember);
