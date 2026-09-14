@@ -12,7 +12,6 @@ const {
   createActionNotificationsForParent,
 } = require("../notification/notification.service");
 const {
-  getDashboardAudienceForParent,
   getCaregiverAudienceForParent,
 } = require("../dashboard/audience");
 const { notifyDashboardUpdates } = require("../dashboard/publisher");
@@ -146,9 +145,18 @@ const notifySosAction = async ({
   });
 };
 
-const emitLovedOneSosDashboardUpdate = async (parentUserId) => {
-  const dashboardAudience = await getDashboardAudienceForParent(parentUserId);
-  await notifyDashboardUpdates(dashboardAudience, "recentData:sosStatus");
+const emitLovedOneSosDashboardUpdate = async (
+  parentUserId,
+  sosStatus = null,
+) => {
+  await notifyDashboardUpdates([parentUserId], "recentData:sosStatus", {
+    sosStatus: sosStatus || null,
+  });
+
+  const caregiverAudience = await getCaregiverAudienceForParent(parentUserId);
+  if (caregiverAudience.length) {
+    await notifyDashboardUpdates(caregiverAudience, "recentData:sosStatus");
+  }
 };
 
 const emitCaregiverMemberSosStatus = async (parentUserId, sos, sosStatus) => {
@@ -214,6 +222,9 @@ const triggerSosService = async (currentUser, payload = {}) => {
   parentUser.sosStatus = SOS_ACTIVE;
   await parentUser.save();
 
+  await emitLovedOneSosDashboardUpdate(parentUser._id, SOS_ACTIVE);
+  await emitCaregiverMemberSosStatus(parentUser._id, sos, SOS_ACTIVE);
+
   await notifySosAction({
     parentUser,
     senderId: parentUser._id,
@@ -224,9 +235,6 @@ const triggerSosService = async (currentUser, payload = {}) => {
     createdAt: sos.createdAt,
     location: sos.location,
   });
-
-  await emitLovedOneSosDashboardUpdate(parentUser._id);
-  await emitCaregiverMemberSosStatus(parentUser._id, sos, SOS_ACTIVE);
 
   return {
     sosId: sos._id,
@@ -261,6 +269,13 @@ const cancelSosService = async (currentUser, payload = {}) => {
       acknowledgements: [],
     });
 
+  await emitLovedOneSosDashboardUpdate(parentUser._id, null);
+  await emitCaregiverMemberSosStatus(
+    parentUser._id,
+    sosForEmit,
+    SOS_CANCELLED,
+  );
+
   await notifySosAction({
     parentUser,
     senderId: parentUser._id,
@@ -271,13 +286,6 @@ const cancelSosService = async (currentUser, payload = {}) => {
     createdAt: activeSos?.createdAt || new Date(),
     location: activeSos?.location || null,
   });
-
-  await emitLovedOneSosDashboardUpdate(parentUser._id);
-  await emitCaregiverMemberSosStatus(
-    parentUser._id,
-    sosForEmit,
-    SOS_CANCELLED,
-  );
 
   return {
     sosId: activeSos?._id || null,
@@ -351,6 +359,9 @@ const resolveSosService = async (currentUser, memberId) => {
       acknowledgements: [],
     });
 
+  await emitLovedOneSosDashboardUpdate(parentUser._id, null);
+  await emitCaregiverMemberSosStatus(parentUser._id, sosForEmit, SOS_RESOLVED);
+
   await notifySosAction({
     parentUser,
     senderId: currentUser._id || currentUser.id,
@@ -361,9 +372,6 @@ const resolveSosService = async (currentUser, memberId) => {
     createdAt: activeSos?.createdAt || new Date(),
     location: activeSos?.location || null,
   });
-
-  await emitLovedOneSosDashboardUpdate(parentUser._id);
-  await emitCaregiverMemberSosStatus(parentUser._id, sosForEmit, SOS_RESOLVED);
 
   return {
     sosId: activeSos?._id || null,
@@ -398,6 +406,13 @@ const cancelMemberSosService = async (currentUser, memberId) => {
       acknowledgements: [],
     });
 
+  await emitLovedOneSosDashboardUpdate(parentUser._id, null);
+  await emitCaregiverMemberSosStatus(
+    parentUser._id,
+    sosForEmit,
+    SOS_CANCELLED,
+  );
+
   await notifySosAction({
     parentUser,
     senderId: currentUser._id || currentUser.id,
@@ -408,13 +423,6 @@ const cancelMemberSosService = async (currentUser, memberId) => {
     createdAt: activeSos?.createdAt || new Date(),
     location: activeSos?.location || null,
   });
-
-  await emitLovedOneSosDashboardUpdate(parentUser._id);
-  await emitCaregiverMemberSosStatus(
-    parentUser._id,
-    sosForEmit,
-    SOS_CANCELLED,
-  );
 
   return {
     sosId: activeSos?._id || null,
