@@ -371,9 +371,61 @@ const resolveSosService = async (currentUser, memberId) => {
   };
 };
 
+const cancelMemberSosService = async (currentUser, memberId) => {
+  const parentUser = await getCaregiverMemberOrThrow(currentUser, memberId);
+  const activeSos = await findActiveSosForUser(parentUser._id);
+
+  if (!activeSos && parentUser.sosStatus !== SOS_ACTIVE) {
+    throw new CustomError("No active SOS alert for this member", [], 400);
+  }
+
+  if (activeSos) {
+    activeSos.status = SOS_CANCELLED;
+    activeSos.cancelledBy = currentUser._id || currentUser.id;
+    activeSos.cancelledAt = new Date();
+    await activeSos.save();
+  }
+
+  parentUser.sosStatus = null;
+  await parentUser.save();
+
+  const sosForEmit =
+    activeSos ||
+    ({
+      userId: parentUser._id,
+      createdAt: new Date(),
+      location: null,
+      acknowledgements: [],
+    });
+
+  await notifySosAction({
+    parentUser,
+    senderId: currentUser._id || currentUser.id,
+    referenceId: activeSos?._id || parentUser._id,
+    title: "SOS cancelled",
+    body: `${parentUser.name}'s SOS alert was dismissed as a false alarm.`,
+    sosStatus: SOS_CANCELLED,
+    createdAt: activeSos?.createdAt || new Date(),
+    location: activeSos?.location || null,
+  });
+
+  await emitLovedOneSosDashboardUpdate(parentUser._id);
+  await emitCaregiverMemberSosStatus(
+    parentUser._id,
+    sosForEmit,
+    SOS_CANCELLED,
+  );
+
+  return {
+    sosId: activeSos?._id || null,
+    sosStatus: null,
+  };
+};
+
 module.exports = {
   triggerSosService,
   cancelSosService,
+  cancelMemberSosService,
   acknowledgeSosService,
   resolveSosService,
   SOS_ACTIVE,

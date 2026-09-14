@@ -46,6 +46,7 @@ const updateSosStatus = require("../controllers/api/v1/users/updateSosStatus");
 const {
   triggerSos,
   cancelSos,
+  cancelMemberSos,
   acknowledgeSos,
   resolveSos,
 } = require("../controllers/api/v1/users/sos");
@@ -66,6 +67,7 @@ router.patch("/sos/cancel", cancelSos);
 router.patch("/sos", updateSosStatus);
 router.patch("/sos/status", updateSosStatus);
 router.patch("/members/:userId/sos/acknowledge", acknowledgeSos);
+router.patch("/members/:userId/sos/cancel", cancelMemberSos);
 router.patch("/members/:userId/sos/resolve", resolveSos);
 router.delete("/profile", deleteProfile);
 router.delete("/deleteProfile", deleteProfile);
