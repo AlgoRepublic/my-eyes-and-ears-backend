@@ -30,7 +30,8 @@ const WEEKDAY_NAMES = new Set([
 const toDisplayCount = (value) => String(Math.max(0, Number(value) || 0));
 
 const resolvePeriod = ({ startDate, endDate } = {}) => {
-  const hasStart = startDate !== undefined && startDate !== null && startDate !== "";
+  const hasStart =
+    startDate !== undefined && startDate !== null && startDate !== "";
   const hasEnd = endDate !== undefined && endDate !== null && endDate !== "";
 
   if (hasStart !== hasEnd) {
@@ -77,14 +78,14 @@ const isMedicationApplicableOnDay = (medication, day) => {
 
   const dayStart = getUtcStartOfDay(day);
 
-  if (medication.startDate && getUtcStartOfDay(medication.startDate) > dayStart) {
+  if (
+    medication.startDate &&
+    getUtcStartOfDay(medication.startDate) > dayStart
+  ) {
     return false;
   }
 
-  if (
-    medication.endDate &&
-    getUtcStartOfDay(medication.endDate) < dayStart
-  ) {
+  if (medication.endDate && getUtcStartOfDay(medication.endDate) < dayStart) {
     return false;
   }
 
@@ -141,12 +142,33 @@ const countScheduledMedicationDoses = (medications, startDate, endDate) => {
   return scheduledCount;
 };
 
-const buildPersonCardTitle = (name) => `${name || "Loved one"} had a great week ✨`;
+const buildPersonCardTitle = (name) =>
+  `${name || "Loved one"} had a great week ✨`;
 
 const buildFamilyCardTitle = (totalSosCount) =>
-  totalSosCount > 0
-    ? "Family had a busy week"
-    : "Family had a calm week ✨";
+  totalSosCount > 0 ? "Family had a busy week" : "Family had a calm week ✨";
+
+const buildFamilyHighlights = ({ checkIns, thinkingOfYou, sosCount }) => {
+  const highlights = [];
+
+  if (thinkingOfYou >= 1) {
+    highlights.push(
+      `You sent ${thinkingOfYou} 'Thinking of you' nudge${thinkingOfYou === 1 ? "" : "s"} across the family.`,
+    );
+  }
+
+  if (sosCount === 0) {
+    highlights.push("No emergencies were reported across the family.");
+  }
+
+  if (!highlights.length && checkIns > 0) {
+    highlights.push(
+      `The family completed ${checkIns} check-in day${checkIns === 1 ? "" : "s"} this week.`,
+    );
+  }
+
+  return highlights;
+};
 
 const buildHighlights = ({
   name,
@@ -177,7 +199,9 @@ const buildHighlights = ({
   }
 
   if (!highlights.length && checkIns > 0) {
-    highlights.push(`${safeName} completed ${checkIns} check-in day${checkIns === 1 ? "" : "s"} this week.`);
+    highlights.push(
+      `${safeName} completed ${checkIns} check-in day${checkIns === 1 ? "" : "s"} this week.`,
+    );
   }
 
   return highlights;
@@ -200,7 +224,10 @@ const hadWeekdayMorningCheckIns = (completedCheckins, startDate, endDate) => {
     }
 
     const completedAt = new Date(entry.completedAt);
-    if (Number.isNaN(completedAt.getTime()) || completedAt.getUTCHours() >= 10) {
+    if (
+      Number.isNaN(completedAt.getTime()) ||
+      completedAt.getUTCHours() >= 10
+    ) {
       continue;
     }
 
@@ -239,7 +266,9 @@ const getWeeklyDigestService = async (currentUser, query = {}) => {
       medsOnTime: "0%",
       familyMessages: "0",
       thinkingOfYou: "0",
+      sosCount: "0",
     },
+    highlights: [],
     members: [],
   };
 
@@ -275,9 +304,7 @@ const getWeeklyDigestService = async (currentUser, query = {}) => {
     Medication.find({
       userId: { $in: memberIds },
       isActive: true,
-    }).select(
-      "userId frequency days dates startDate endDate isActive time",
-    ),
+    }).select("userId frequency days dates startDate endDate isActive time"),
     MedicationHistory.find({
       userId: { $in: memberIds },
       status: "taken",
@@ -465,8 +492,7 @@ const getWeeklyDigestService = async (currentUser, query = {}) => {
       throw new CustomError("You do not have access to this member", [], 403);
     }
   } else {
-    selectedMember =
-      activatedMembers[0] || memberStatsList[0] || null;
+    selectedMember = activatedMembers[0] || memberStatsList[0] || null;
   }
 
   const person = selectedMember
@@ -490,9 +516,7 @@ const getWeeklyDigestService = async (currentUser, query = {}) => {
       }
     : null;
 
-  const rollupSource = activatedMembers.length
-    ? activatedMembers
-    : [];
+  const rollupSource = activatedMembers.length ? activatedMembers : [];
 
   const rollupCheckIns = rollupSource.reduce(
     (sum, item) => sum + item._raw.checkIns,
@@ -553,7 +577,13 @@ const getWeeklyDigestService = async (currentUser, query = {}) => {
         medsOnTime: `${averageAdherence}%`,
         familyMessages: toDisplayCount(rollupMessages),
         thinkingOfYou: toDisplayCount(rollupThinking),
+        sosCount: toDisplayCount(rollupSos),
       },
+      highlights: buildFamilyHighlights({
+        checkIns: rollupCheckIns,
+        thinkingOfYou: rollupThinking,
+        sosCount: rollupSos,
+      }),
       members: memberStatsList.map(
         ({ memberId, name, relation, email, image, isActive, stats }) => ({
           memberId,
