@@ -13,6 +13,8 @@ services:
       NODE_ENV: production
       PORT: 5001
       REDIS_URL: redis://redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
 
@@ -26,6 +28,8 @@ services:
     environment:
       NODE_ENV: production
       REDIS_URL: redis://redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
     command: node workers/notification.worker.js
@@ -40,6 +44,8 @@ services:
     environment:
       NODE_ENV: production
       REDIS_URL: redis://redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
     command: node workers/notification.scheduler.js
