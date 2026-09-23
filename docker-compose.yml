@@ -12,11 +12,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5001
+      MONGODB_URL: mongodb://mongo:27017/my-eyes-and-ears
       REDIS_URL: redis://redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   worker:
     build:
@@ -27,11 +31,15 @@ services:
       - .env.production
     environment:
       NODE_ENV: production
+      MONGODB_URL: mongodb://mongo:27017/my-eyes-and-ears
       REDIS_URL: redis://redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
     command: node workers/notification.worker.js
 
   scheduler:
@@ -43,13 +51,31 @@ services:
       - .env.production
     environment:
       NODE_ENV: production
+      MONGODB_URL: mongodb://mongo:27017/my-eyes-and-ears
       REDIS_URL: redis://redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
     command: node workers/notification.scheduler.js
 
   redis:
     image: redis:7-alpine
     container_name: eyes-ears-redis
+
+  mongo:
+    image: mongo:7
+    container_name: eyes-ears-mongo
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_data:
