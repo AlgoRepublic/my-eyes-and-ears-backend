@@ -6,25 +6,34 @@
     "start-dev": "NODE_ENV=development nodemon index.js",
     "start-prod": "NODE_ENV=production node index.js",
     "start-staging": "NODE_ENV=staging node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "worker:notifications": "NODE_ENV=development node workers/notification.worker.js",
+    "scheduler:notifications": "NODE_ENV=development node workers/notification.scheduler.js",
+    "test": "node --test tests/notification.test.js tests/chat.test.js tests/history.test.js"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@bull-board/api": "^9.2.0",
+    "@bull-board/express": "^9.2.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.1.2",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
+    "firebase-admin": "^13.10.0",
     "helmet": "^8.1.0",
+    "ioredis": "^6.0.0",
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "nodemailer": "^7.0.13",
     "nodemon": "^3.1.11",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "socket.io": "^4.8.3"
   }
 }

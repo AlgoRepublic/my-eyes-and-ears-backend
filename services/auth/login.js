@@ -4,9 +4,30 @@ const { CustomError } = require("../../utils/error");
 const { joiValidate, joiFormatErrors } = require("../../utils/joi");
 const { loginSchema } = require("../../utils/validation");
 const User = require("../../models/user");
-const bcrypt = require("bcrypt");
+const Family = require("../../models/family");
+const { addFcmTokenToUser } = require("./fcmToken");
+const {
+  appendCaregiverNotificationSettings,
+} = require("../user/caregiverNotificationSettings");
+const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
 
-const loginService = async (email, password) => {
+const buildFamilyName = async (familyId) => {
+  const family = await Family.findById(familyId);
+  return family?.name || "";
+};
+
+const generateSixDigitOtp = () => {
+  const otpNumber = crypto.randomInt(100000, 1000000);
+  return String(otpNumber);
+};
+
+const hashOtp = (otp) => {
+  return crypto.createHash("sha256").update(otp).digest("hex");
+};
+
+const OTP_EXPIRY_MINUTES = 10;
+
+const loginService = async (email, password, fcmToken) => {
   const { error } = await joiValidate(loginSchema, {
     email,
     password,
@@ -18,6 +39,7 @@ const loginService = async (email, password) => {
 
   const user = await User.findOne({
     email: email.toLowerCase(),
+    ...ACTIVE_USER_FILTER,
   });
 
   if (!user) {
@@ -26,14 +48,11 @@ const loginService = async (email, password) => {
   }
 
   if (!user.password) {
-    console.log("LOGIN DEBUG: User has no password set");
-    if (password && typeof password === "string") {
-      const saltRounds = 10;
-      user.password = await bcrypt.hash(password.trim(), saltRounds);
-      await user.save();
-    }
-
-    throw new CustomError("Password not set for this user");
+    throw new CustomError(
+      "Password is not set for this account. Please login with social provider",
+      [],
+      400,
+    );
   }
 
   console.log("LOGIN DEBUG: Stored Hash:", user.password);
@@ -44,25 +63,62 @@ const loginService = async (email, password) => {
   if (!isPasswordValid) {
     throw new CustomError("Invalid email or password");
   }
+  if (
+    !user.isEmailVerified &&
+    user.role === "caregiver" &&
+    user.isPrimary === true
+  ) {
+    // assign new email verification otp
+    const otp = generateSixDigitOtp();
+    const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+    const otpHash = hashOtp(otp);
+    user.emailVerificationOtpHash = otpHash;
+    user.emailVerificationOtpExpiresAt = otpExpiresAt;
+    await user.save();
+  }
+  const hasUpdatedFcmToken = addFcmTokenToUser(user, fcmToken);
+  if (hasUpdatedFcmToken) {
+    await user.save();
+  }
 
   const accessToken = jwt.sign(
-    { userId: user.id, type: "access" },
+    { id: user.id, type: "access" },
     process.env.JWT_SECRET,
     {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1m",
-    }
+    },
   );
-
-  const refreshToken = crypto.randomBytes(64).toString("hex");
+  const refreshToken = jwt.sign(
+    { id: user.id, type: "refresh" },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "90d",
+    },
+  );
+  const familyName = await buildFamilyName(user.familyId);
+  const userData = await appendCaregiverNotificationSettings(user, {
+    id: user._id,
+    email: user.email,
+    name: user.name,
+    phoneNumber: user.phoneNumber,
+    familyName: familyName || "",
+    image: user.image,
+    isEmailVerified: user.isEmailVerified,
+    isProfileCompleted: user.isProfileCompleted,
+    isPrimary: user.role === "caregiver" ? Boolean(user.isPrimary) : false,
+    hasPassword: Boolean(user.password),
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    accessToken,
+    refreshToken,
+  });
 
   return {
     success: true,
     statusCode: 200,
     message: "User logged in successfully",
     data: {
-      user,
-      accessToken,
-      refreshToken,
+      user: userData,
     },
   };
 };
