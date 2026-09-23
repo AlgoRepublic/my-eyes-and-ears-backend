@@ -8,7 +8,7 @@
     "start-staging": "NODE_ENV=staging node index.js",
     "worker:notifications": "NODE_ENV=development node workers/notification.worker.js",
     "scheduler:notifications": "NODE_ENV=development node workers/notification.scheduler.js",
-    "test": "node --test tests/notification.test.js tests/chat.test.js"
+    "test": "node --test tests/notification.test.js tests/chat.test.js tests/history.test.js"
   },
   "author": "",
   "license": "ISC",

@@ -4,7 +4,7 @@ const { ensureParentMemberOrThrow } = require("./memberAccess");
 const {
   createImmediateNotification,
 } = require("../notification/notification.service");
-const { getDashboardAudienceForParent } = require("../dashboard/audience");
+const { getCaregiverAudienceForParent } = require("../dashboard/audience");
 const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const requestMemberLocationService = async (currentUser, memberId) => {
@@ -17,6 +17,15 @@ const requestMemberLocationService = async (currentUser, memberId) => {
 
   parentUser.locationStatus = LOCATION_STATUS.REQUESTED;
   await parentUser.save();
+
+  await notifyDashboardUpdates([parentUser._id], "location_status", {
+    location_status: LOCATION_STATUS.REQUESTED,
+  });
+
+  const caregiverAudience = await getCaregiverAudienceForParent(parentUser._id);
+  if (caregiverAudience.length) {
+    await notifyDashboardUpdates(caregiverAudience, "location_status");
+  }
 
   const caregiverName = currentUser.name || "Your caregiver";
   await createImmediateNotification({
@@ -33,9 +42,6 @@ const requestMemberLocationService = async (currentUser, memberId) => {
       location_status: LOCATION_STATUS.REQUESTED,
     },
   });
-
-  const dashboardAudience = await getDashboardAudienceForParent(parentUser._id);
-  await notifyDashboardUpdates(dashboardAudience, "location_status");
 
   return {
     userId: parentUser._id,

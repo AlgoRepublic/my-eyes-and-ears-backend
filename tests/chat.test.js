@@ -72,6 +72,34 @@ test("text message payload validation requires text", async () => {
   );
 });
 
+test("text message payload accepts isThinkingOfYou flag", async () => {
+  const payload = await validateSendMessagePayload({
+    clientMessageId: "abc-123",
+    type: "text",
+    text: "Thinking of you",
+    isThinkingOfYou: "true",
+  });
+
+  assert.equal(payload.isThinkingOfYou, true);
+  assert.equal(payload.text, "Thinking of you");
+});
+
+test("formatMessage includes isThinkingOfYou", () => {
+  const formatted = formatMessage({
+    _id: "64f1a2b3c4d5e6f7a8b9c0d1",
+    conversationId: "64f1a2b3c4d5e6f7a8b9c0d2",
+    senderId: "64f1a2b3c4d5e6f7a8b9c0d3",
+    clientMessageId: "client-thinking",
+    type: "text",
+    text: "Thinking of you",
+    isThinkingOfYou: true,
+    createdAt: new Date("2026-08-27T09:00:00.000Z"),
+    updatedAt: new Date("2026-08-27T09:00:00.000Z"),
+  });
+
+  assert.equal(formatted.isThinkingOfYou, true);
+});
+
 test("attachment message requires uploaded file", async () => {
   await assert.rejects(
     () =>

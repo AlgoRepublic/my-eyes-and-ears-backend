@@ -7,6 +7,7 @@ const CAREGIVER_PREF_BY_TYPE = {
   appointment: null,
   checkinReminder: "missedCheckIns",
   sos: "sosAlerts",
+  SOS: "sosAlerts",
 };
 
 const PARENT_PREF_BY_TYPE = {
@@ -14,10 +15,20 @@ const PARENT_PREF_BY_TYPE = {
   appointment: "appointmentsReminders",
   checkinReminder: "dailyCheckInReminders",
   sos: null,
+  SOS: null,
 };
 
-const isNotificationEnabledForUser = (profileSetting, type, role) => {
-  if (!profileSetting || profileSetting.doNotDisturb) {
+const isNotificationEnabledForUser = (
+  profileSetting,
+  type,
+  role,
+  { bypassDoNotDisturb = false } = {},
+) => {
+  if (!profileSetting) {
+    return false;
+  }
+
+  if (!bypassDoNotDisturb && profileSetting.doNotDisturb) {
     return false;
   }
 
@@ -38,6 +49,7 @@ const getNotificationRecipients = async ({
   parentUserId,
   type,
   includeCaregivers = true,
+  bypassDoNotDisturb = false,
 }) => {
   const parentUser = await User.findOne({
     _id: parentUserId,
@@ -70,6 +82,8 @@ const getNotificationRecipients = async ({
     return accumulator;
   }, new Map());
 
+  const preferenceOptions = { bypassDoNotDisturb };
+
   const recipients = [
     {
       userId: parentUser._id,
@@ -78,6 +92,7 @@ const getNotificationRecipients = async ({
         profileByUserId.get(String(parentUser._id)),
         type,
         "parent",
+        preferenceOptions,
       ),
     },
   ];
@@ -90,6 +105,7 @@ const getNotificationRecipients = async ({
         profileByUserId.get(String(caregiver._id)),
         type,
         "caregiver",
+        preferenceOptions,
       ),
     });
   }

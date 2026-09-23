@@ -24,6 +24,9 @@ const {
   registerDashboardSocketHandlers,
 } = require("./services/dashboard/socket");
 const {
+  registerCaregiverDashboardSocketHandlers,
+} = require("./services/dashboard/caregiverSocket");
+const {
   registerConversationListSocketHandlers,
 } = require("./services/chat/conversationListSocket");
 const {
@@ -98,11 +101,13 @@ app.get("/", (req, res) => {
 
 registerChatSocketHandlers(io);
 const dashboardIo = registerDashboardSocketHandlers(io);
+const caregiverDashboardIo = registerCaregiverDashboardSocketHandlers(io);
 const conversationsIo = registerConversationListSocketHandlers(io);
 app.locals.dashboardIo = dashboardIo;
+app.locals.caregiverDashboardIo = caregiverDashboardIo;
 app.locals.conversationsIo = conversationsIo;
 subscribeNotificationUnreadCountUpdates(dashboardIo);
-subscribeDashboardUpdates(dashboardIo);
+subscribeDashboardUpdates(dashboardIo, caregiverDashboardIo);
 subscribeConversationListUpdates(conversationsIo);
 
 const startServer = async () => {

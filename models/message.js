@@ -53,6 +53,11 @@ const messageSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+    isThinkingOfYou: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     editedAt: {
       type: Date,
       default: null,

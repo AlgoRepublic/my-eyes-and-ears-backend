@@ -20,9 +20,30 @@ const { notifyDashboardUpdates } = require("../dashboard/publisher");
 
 const ATTACHMENT_MESSAGE_TYPES = new Set(["image", "video", "audio", "file"]);
 
+const parseBooleanFlag = (value, defaultValue = false) => {
+  if (value === undefined || value === null || value === "") {
+    return defaultValue;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes"].includes(normalized)) {
+    return true;
+  }
+  if (["false", "0", "no"].includes(normalized)) {
+    return false;
+  }
+
+  return defaultValue;
+};
+
 const validateSendMessagePayload = async (payload = {}, { attachmentFile, userId } = {}) => {
   const clientMessageId = String(payload.clientMessageId || "").trim();
   const type = String(payload.type || "").trim();
+  const isThinkingOfYou = parseBooleanFlag(payload.isThinkingOfYou, false);
 
   if (!clientMessageId) {
     throw new CustomError("clientMessageId is required", [], 400);
@@ -37,7 +58,7 @@ const validateSendMessagePayload = async (payload = {}, { attachmentFile, userId
     if (!text) {
       throw new CustomError("Message text is required", [], 400);
     }
-    return { clientMessageId, type, text };
+    return { clientMessageId, type, text, isThinkingOfYou };
   }
 
   if (!ATTACHMENT_MESSAGE_TYPES.has(type)) {
@@ -61,6 +82,7 @@ const validateSendMessagePayload = async (payload = {}, { attachmentFile, userId
       thumbnailUrl: null,
     },
     replyToMessageId: payload.replyToMessageId ?? null,
+    isThinkingOfYou,
   };
 };
 

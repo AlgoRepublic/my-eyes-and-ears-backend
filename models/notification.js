@@ -7,6 +7,7 @@ const NOTIFICATION_TYPES = [
   "chat",
   "MESSAGE",
   "sos",
+  "SOS",
 ];
 const NOTIFICATION_STATUSES = [
   "pending",

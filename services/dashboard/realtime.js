@@ -19,6 +19,14 @@ const emitDashboardEventToUser = async (dashboardIo, userId, eventName) => {
   dashboardIo.to(buildUserRoom(userId)).emit(eventName, payload);
 };
 
+const emitDashboardPayloadToUser = (dashboardIo, userId, eventName, payload) => {
+  if (!dashboardIo || !userId || !eventName || payload === undefined) {
+    return;
+  }
+
+  dashboardIo.to(buildUserRoom(userId)).emit(eventName, payload);
+};
+
 const emitAllDashboardEventsToUser = async (dashboardIo, userId) => {
   await Promise.all(
     Object.keys(DASHBOARD_EVENT_BUILDERS).map((eventName) =>
@@ -27,7 +35,7 @@ const emitAllDashboardEventsToUser = async (dashboardIo, userId) => {
   );
 };
 
-const subscribeDashboardUpdates = (dashboardIo) => {
+const subscribeDashboardUpdates = (dashboardIo, caregiverDashboardIo = null) => {
   const subscriber = createRedisConnection();
 
   subscriber.subscribe(DASHBOARD_UPDATE_CHANNEL, (error) => {
@@ -42,8 +50,32 @@ const subscribeDashboardUpdates = (dashboardIo) => {
     }
 
     try {
-      const { userId, eventName } = JSON.parse(message);
+      const { userId, eventName, payload } = JSON.parse(message);
       if (!userId || !eventName) {
+        return;
+      }
+
+      if (payload !== undefined) {
+        const isCaregiverSosEvent =
+          eventName === "member:sosStatus" ||
+          eventName === "sos:acknowledgement";
+
+        if (isCaregiverSosEvent) {
+          // Emit on both namespaces so caregivers get full SOS details
+          // whether they use /dashboardData or /caregiverDashboardData.
+          emitDashboardPayloadToUser(dashboardIo, userId, eventName, payload);
+          if (caregiverDashboardIo) {
+            emitDashboardPayloadToUser(
+              caregiverDashboardIo,
+              userId,
+              eventName,
+              payload,
+            );
+          }
+          return;
+        }
+
+        emitDashboardPayloadToUser(dashboardIo, userId, eventName, payload);
         return;
       }
 
@@ -58,6 +90,7 @@ const subscribeDashboardUpdates = (dashboardIo) => {
 
 module.exports = {
   emitDashboardEventToUser,
+  emitDashboardPayloadToUser,
   emitAllDashboardEventsToUser,
   subscribeDashboardUpdates,
 };

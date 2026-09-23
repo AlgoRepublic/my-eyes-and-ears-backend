@@ -27,6 +27,27 @@ const getDashboardAudienceForParent = async (parentUserId) => {
   return [...new Set(audience)];
 };
 
+const getCaregiverAudienceForParent = async (parentUserId) => {
+  const parentUser = await User.findOne({
+    _id: parentUserId,
+    role: "parent",
+    ...ACTIVE_USER_FILTER,
+  }).select("_id familyId");
+
+  if (!parentUser?.familyId) {
+    return [];
+  }
+
+  const caregivers = await User.find({
+    familyId: parentUser.familyId,
+    role: "caregiver",
+    ...ACTIVE_USER_FILTER,
+  }).select("_id");
+
+  return caregivers.map((caregiver) => String(caregiver._id));
+};
+
 module.exports = {
   getDashboardAudienceForParent,
+  getCaregiverAudienceForParent,
 };

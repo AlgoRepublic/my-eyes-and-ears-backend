@@ -95,15 +95,16 @@ const updateSosStatusService = async (currentUser, payload = {}) => {
     await createActionNotificationsForParent({
       parentUserId: parentUser._id,
       senderId: currentUser._id || currentUser.id,
-      type: "sos",
+      type: "SOS",
       referenceId: parentUser._id,
       title: "SOS alert",
       body: `${parentUser.name} triggered an SOS alert.`,
       data: {
-        type: "sos_status",
-        parentUserId: String(parentUser._id),
+        memberId: String(parentUser._id),
         sosStatus: SOS_ACTIVE,
+        createdAt: new Date().toISOString(),
       },
+      bypassDoNotDisturb: true,
     });
   }
 
