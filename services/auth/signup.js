@@ -6,6 +6,8 @@ const { normalizeFcmToken } = require("./fcmToken");
 const {
   createCaregiverProfileSetting,
 } = require("../user/caregiverNotificationSettings");
+const { sendSignupOtpEmail } = require("../notification/email");
+const { dispatchEmail } = require("../notification/emailDispatch");
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -82,6 +84,17 @@ const signupService = async (
     await user.save();
     await createCaregiverProfileSetting(user._id);
   }
+
+  await dispatchEmail(
+    () =>
+      sendSignupOtpEmail({
+        to: user.email,
+        name: user.name,
+        otp,
+        expiresMinutes: OTP_EXPIRY_MINUTES,
+      }),
+    "signup OTP",
+  );
 
   const userData = {
     id: user._id,

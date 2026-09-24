@@ -2,6 +2,8 @@ const crypto = require("crypto");
 const User = require("../../models/user");
 const { CustomError } = require("../../utils/error");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const { sendSignupOtpEmail } = require("../notification/email");
+const { dispatchEmail } = require("../notification/emailDispatch");
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -38,6 +40,17 @@ const resendEmailOtpService = async (email) => {
   user.emailVerificationOtpHash = hashOtp(otp);
   user.emailVerificationOtpExpiresAt = otpExpiresAt;
   await user.save();
+
+  await dispatchEmail(
+    () =>
+      sendSignupOtpEmail({
+        to: user.email,
+        name: user.name,
+        otp,
+        expiresMinutes: OTP_EXPIRY_MINUTES,
+      }),
+    "resend signup OTP",
+  );
 
   const verification = {
     otpExpiresAt,

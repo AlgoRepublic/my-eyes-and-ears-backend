@@ -26,6 +26,8 @@ const {
   formatMemberLocationResponse,
   resolveLocationStatus,
 } = require("../../utils/location");
+const { sendLovedOneInvitationEmail } = require("../notification/email");
+const { dispatchEmail } = require("../notification/emailDispatch");
 
 const buildFamilyName = async (familyId) => {
   const family = await Family.findById(familyId);
@@ -380,6 +382,22 @@ const addMemberService = async (currentUser, data = {}) => {
     syncCheckinNotifications(reminder._id);
   }
 
+  if (email && invitationCode) {
+    const inviterName =
+      String(currentUser.name || "").trim() || "Your caregiver";
+
+    await dispatchEmail(
+      () =>
+        sendLovedOneInvitationEmail({
+          to: email,
+          lovedOneName: parentUser.name,
+          inviterName,
+          invitationCode,
+        }),
+      "loved one invitation",
+    );
+  }
+
   return {
     user: {
       ...buildMemberResponse({
@@ -393,7 +411,6 @@ const addMemberService = async (currentUser, data = {}) => {
       }),
     },
 
-    // invitationUrl: `https://api.myeyesandears.com/invite/${invitationCode}`,
   };
 };
 
