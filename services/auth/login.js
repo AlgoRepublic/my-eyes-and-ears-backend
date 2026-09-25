@@ -10,6 +10,8 @@ const {
   appendCaregiverNotificationSettings,
 } = require("../user/caregiverNotificationSettings");
 const { ACTIVE_USER_FILTER } = require("../../utils/userSoftDelete");
+const { sendSignupOtpEmail } = require("../notification/email");
+const { dispatchEmail } = require("../notification/emailDispatch");
 
 const buildFamilyName = async (familyId) => {
   const family = await Family.findById(familyId);
@@ -75,6 +77,17 @@ const loginService = async (email, password, fcmToken) => {
     user.emailVerificationOtpHash = otpHash;
     user.emailVerificationOtpExpiresAt = otpExpiresAt;
     await user.save();
+
+    await dispatchEmail(
+      () =>
+        sendSignupOtpEmail({
+          to: user.email,
+          name: user.name,
+          otp,
+          expiresMinutes: OTP_EXPIRY_MINUTES,
+        }),
+      "login email verification OTP",
+    );
   }
   const hasUpdatedFcmToken = addFcmTokenToUser(user, fcmToken);
   if (hasUpdatedFcmToken) {

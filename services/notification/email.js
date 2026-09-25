@@ -1,6 +1,13 @@
 let nodemailer = null;
 let cachedTransporter = null;
 
+const {
+  buildOtpEmail,
+  buildLovedOneInvitationEmail,
+  buildCaregiverInviteEmail,
+  APP_NAME,
+} = require("./emailTemplates");
+
 const getNodemailer = () => {
   if (!nodemailer) {
     try {
@@ -14,20 +21,38 @@ const getNodemailer = () => {
 
   return nodemailer;
 };
-// 4725aa21848f1ec11fec2f143b911bf2
+
+const parseFromAddress = () => {
+  const fromEmail =
+    process.env.MAILJET_FROM_EMAIL ||
+    process.env.MAIL_FROM ||
+    process.env.SMTP_FROM;
+  const fromName =
+    process.env.MAILJET_FROM_NAME || process.env.MAIL_FROM_NAME || APP_NAME;
+
+  if (!fromEmail) {
+    throw new Error(
+      "Missing sender address. Set MAILJET_FROM_EMAIL, MAIL_FROM, or SMTP_FROM",
+    );
+  }
+
+  return { fromEmail, fromName };
+};
+
+const usesMailjetApi = () =>
+  Boolean(process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET);
 
 const getSmtpConfigOrThrow = () => {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM;
   const secure =
     process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465";
 
-  if (!host || !user || !pass || !from) {
+  if (!host || !user || !pass) {
     throw new Error(
-      "Missing SMTP configuration. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM",
+      "Missing SMTP configuration. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS or use MAILJET_API_KEY and MAILJET_API_SECRET",
     );
   }
 
@@ -39,7 +64,6 @@ const getSmtpConfigOrThrow = () => {
       user,
       pass,
     },
-    from,
   };
 };
 
@@ -61,16 +85,152 @@ const getTransporter = () => {
   return cachedTransporter;
 };
 
+const sendViaMailjet = async ({ to, subject, text, html }) => {
+  const apiKey = process.env.MAILJET_API_KEY;
+  const apiSecret = process.env.MAILJET_API_SECRET;
+  const { fromEmail, fromName } = parseFromAddress();
+
+  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+
+  const response = await fetch("https://api.mailjet.com/v3.1/send", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      Messages: [
+        {
+          From: {
+            Email: fromEmail,
+            Name: fromName,
+          },
+          To: [
+            {
+              Email: to,
+            },
+          ],
+          Subject: subject,
+          TextPart: text,
+          HTMLPart: html,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Mailjet send failed (${response.status}): ${body}`);
+  }
+
+  return response.json();
+};
+
+const sendViaSmtp = async ({ to, subject, text, html }) => {
+  const { fromEmail, fromName } = parseFromAddress();
+  const transporter = getTransporter();
+
+  return transporter.sendMail({
+    from: `"${fromName}" <${fromEmail}>`,
+    to,
+    subject,
+    text,
+    html,
+  });
+};
+
 const sendEmail = async ({ to, subject, text, html }) => {
   if (!to) {
     throw new Error("Email recipient is required");
   }
 
-  const smtpConfig = getSmtpConfigOrThrow();
-  const transporter = getTransporter();
+  if (usesMailjetApi()) {
+    return sendViaMailjet({ to, subject, text, html });
+  }
 
-  return transporter.sendMail({
-    from: smtpConfig.from,
+  return sendViaSmtp({ to, subject, text, html });
+};
+
+const OTP_EXPIRY_MINUTES_DEFAULT = 10;
+
+const sendSignupOtpEmail = async ({
+  to,
+  name,
+  otp,
+  expiresMinutes = OTP_EXPIRY_MINUTES_DEFAULT,
+}) => {
+  const { text, html } = buildOtpEmail({
+    recipientName: name,
+    otp,
+    expiresMinutes,
+    purposeTitle: "Verify your email",
+    purposeDescription:
+      "Use this code to verify your email address and complete your registration.",
+  });
+
+  return sendEmail({
+    to,
+    subject: `${APP_NAME} — Email verification code`,
+    text,
+    html,
+  });
+};
+
+const sendForgotPasswordOtpEmail = async ({
+  to,
+  name,
+  otp,
+  expiresMinutes = OTP_EXPIRY_MINUTES_DEFAULT,
+}) => {
+  const { text, html } = buildOtpEmail({
+    recipientName: name,
+    otp,
+    expiresMinutes,
+    purposeTitle: "Reset your password",
+    purposeDescription: "Use this code to reset your password.",
+  });
+
+  return sendEmail({
+    to,
+    subject: `${APP_NAME} — Password reset code`,
+    text,
+    html,
+  });
+};
+
+const sendLovedOneInvitationEmail = async ({
+  to,
+  lovedOneName,
+  inviterName,
+  invitationCode,
+}) => {
+  const { subject, text, html } = buildLovedOneInvitationEmail({
+    lovedOneName,
+    inviterName,
+    invitationCode,
+  });
+
+  return sendEmail({
+    to,
+    subject,
+    text,
+    html,
+  });
+};
+
+const sendCaregiverInviteEmail = async ({
+  to,
+  caregiverName,
+  inviterName,
+  familyName,
+}) => {
+  const { subject, text, html } = buildCaregiverInviteEmail({
+    caregiverName,
+    inviterName,
+    familyName,
+  });
+
+  return sendEmail({
     to,
     subject,
     text,
@@ -85,7 +245,7 @@ const sendCaregiverCredentialsEmail = async ({
 }) => {
   const safeName = caregiverName || "Caregiver";
 
-  const subject = "Welcome to My Eyes & Ears — Your Caregiver Account";
+  const subject = `Welcome to ${APP_NAME} — Your caregiver account`;
 
   const text = [
     `Hi ${safeName},`,
@@ -100,7 +260,7 @@ const sendCaregiverCredentialsEmail = async ({
     "If you did not expect this account, please contact your administrator.",
     "",
     "Best regards,",
-    "My Eyes & Ears Team",
+    `${APP_NAME} Team`,
   ].join("\n");
 
   const html = `
@@ -130,7 +290,6 @@ const sendCaregiverCredentialsEmail = async ({
     <tr>
       <td align="center">
 
-        <!-- Main Container -->
         <table
           width="100%"
           cellpadding="0"
@@ -145,7 +304,6 @@ const sendCaregiverCredentialsEmail = async ({
           "
         >
 
-          <!-- Header -->
           <tr>
             <td
               style="
@@ -162,7 +320,7 @@ const sendCaregiverCredentialsEmail = async ({
                   letter-spacing: -0.5px;
                 "
               >
-                My Eyes &amp; Ears
+                ${APP_NAME}
               </div>
 
               <div
@@ -177,7 +335,6 @@ const sendCaregiverCredentialsEmail = async ({
             </td>
           </tr>
 
-          <!-- Content -->
           <tr>
             <td style="padding: 40px;">
 
@@ -204,7 +361,6 @@ const sendCaregiverCredentialsEmail = async ({
                 You can now sign in using the credentials below.
               </p>
 
-              <!-- Credentials Box -->
               <table
                 width="100%"
                 cellpadding="0"
@@ -279,7 +435,6 @@ const sendCaregiverCredentialsEmail = async ({
                 </tr>
               </table>
 
-              <!-- Security Notice -->
               <table
                 width="100%"
                 cellpadding="0"
@@ -343,13 +498,12 @@ const sendCaregiverCredentialsEmail = async ({
                 "
               >
                 Best regards,<br />
-                <strong>My Eyes &amp; Ears Team</strong>
+                <strong>${APP_NAME} Team</strong>
               </p>
 
             </td>
           </tr>
 
-          <!-- Footer -->
           <tr>
             <td
               style="
@@ -378,7 +532,7 @@ const sendCaregiverCredentialsEmail = async ({
                   color: #9ca3af;
                 "
               >
-                © ${new Date().getFullYear()} My Eyes &amp; Ears. All rights reserved.
+                © ${new Date().getFullYear()} ${APP_NAME}. All rights reserved.
               </p>
             </td>
           </tr>
@@ -400,7 +554,12 @@ const sendCaregiverCredentialsEmail = async ({
     html,
   });
 };
+
 module.exports = {
   sendEmail,
+  sendSignupOtpEmail,
+  sendForgotPasswordOtpEmail,
+  sendLovedOneInvitationEmail,
+  sendCaregiverInviteEmail,
   sendCaregiverCredentialsEmail,
 };
