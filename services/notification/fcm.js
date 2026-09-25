@@ -1,17 +1,6 @@
 let firebaseAdmin = null;
 let firebaseApp = null;
 
-const path = require("path");
-const fs = require("fs");
-
-const DEFAULT_SERVICE_ACCOUNT_PATH = path.join(
-  __dirname,
-  "../../config/firebase-service-account.json",
-);
-
-const getServiceAccountPath = () =>
-  process.env.FCM_SERVICE_ACCOUNT_PATH || DEFAULT_SERVICE_ACCOUNT_PATH;
-
 const getFirebaseAdmin = () => {
   if (!firebaseAdmin) {
     try {
@@ -26,24 +15,36 @@ const getFirebaseAdmin = () => {
   return firebaseAdmin;
 };
 
-const parseServiceAccount = () => {
-  if (process.env.FCM_SERVICE_ACCOUNT_JSON) {
-    try {
-      return JSON.parse(process.env.FCM_SERVICE_ACCOUNT_JSON);
-    } catch (error) {
-      throw new Error("Invalid FCM_SERVICE_ACCOUNT_JSON value");
-    }
+const parseServiceAccountJson = (raw) => {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) {
+    return null;
   }
 
-  const serviceAccountPath = getServiceAccountPath();
-  if (fs.existsSync(serviceAccountPath)) {
-    try {
-      return JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
-    } catch (error) {
-      throw new Error(
-        `Invalid Firebase service account file at ${serviceAccountPath}`,
-      );
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    const unquoted =
+      (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+      (trimmed.startsWith('"') && trimmed.endsWith('"'));
+    if (unquoted) {
+      try {
+        return JSON.parse(trimmed.slice(1, -1));
+      } catch (innerError) {
+        // fall through
+      }
     }
+    throw new Error("Invalid FCM_SERVICE_ACCOUNT_JSON value");
+  }
+};
+
+const parseServiceAccount = () => {
+  if (process.env.FCM_SERVICE_ACCOUNT_JSON) {
+    const parsed = parseServiceAccountJson(process.env.FCM_SERVICE_ACCOUNT_JSON);
+    if (parsed?.private_key && typeof parsed.private_key === "string") {
+      parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
+    }
+    return parsed;
   }
 
   const projectId = process.env.FCM_PROJECT_ID;
@@ -80,7 +81,7 @@ const initFcm = () => {
   const serviceAccount = parseServiceAccount();
   if (!serviceAccount) {
     throw new Error(
-      "Missing FCM credentials. Add config/firebase-service-account.json or set FCM_SERVICE_ACCOUNT_JSON / FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY",
+      "Missing FCM credentials. Set FCM_SERVICE_ACCOUNT_JSON or FCM_PROJECT_ID, FCM_CLIENT_EMAIL, and FCM_PRIVATE_KEY in .env",
     );
   }
 
